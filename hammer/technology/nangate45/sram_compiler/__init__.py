@@ -36,11 +36,12 @@ class Nangate45SRAMGenerator(OpenROADTool, HammerSRAMGeneratorTool):
         # Check what type of installation we have
         if not os.path.exists(openroad + "flow/designs/src/tinyRocket"):
             # This uses the OpenRoad repository
-            base_dir = os.path.join(openroad, "test/Nangate45/")
+            base_dir = os.path.join(os.environ['OPENROAD'], "test/Nangate45/")
         else: 
             base_dir = os.path.join(openroad, "flow/designs/src/tinyRocket")
 
         tech_cache_dir = os.path.abspath(self.technology.cache_dir)
+        print(tech_cache_dir)
         if params.family == "1RW":
             fam_code = params.family
         else:
@@ -77,38 +78,38 @@ class Nangate45SRAMGenerator(OpenROADTool, HammerSRAMGeneratorTool):
                 for specify_j in range(0, params.width):
                     for specify_i in range(0, 2):
                         if specify_i == 0:
-                            specify += "$setuphold(posedge CE, %s I[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s wd_in[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
                         else:
-                            specify += "$setuphold(posedge CE, %s I[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
-                    specify += "(CE => O[%d]) = 0;\n" % (specify_j)
+                            specify += "$setuphold(posedge ce_in, %s wd_in[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                    specify += "(ce_in => rd_out[%d]) = 0;\n" % (specify_j)
                 for specify_k in range(0, math.ceil(math.log2(params.depth))):
                     for specify_i in range(0, 2):
                         if specify_i == 0:
-                            specify += "$setuphold(posedge CE, %s A[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s addr_in[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
                         else:
-                            specify += "$setuphold(posedge CE, %s A[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s addr_in[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
                 f.write("""
 `timescale 1ns/100fs
+                       
+module {NAME} (addr_in,clk,ce_in,we_in,w_mask_in,wd_in,rd_out);
 
-module {NAME} (A,CE,WEB,OEB,CSB,I,O);
+input clk;
+input ce_in;
+input we_in;
+input [{WORDLENGTH}-1:0] w_mask_in;
 
-input CE;
-input WEB;
-input OEB;
-input CSB;
-
-input  [{NUMADDR}-1:0] A;
-input  [{WORDLENGTH}-1:0] I;
-output [{WORDLENGTH}-1:0] O;
+input  [{NUMADDR}-1:0] addr_in;
+input  [{WORDLENGTH}-1:0] wd_in;
+output [{WORDLENGTH}-1:0] rd_out;
 
 reg     [{WORDLENGTH}-1:0] memory[{NUMWORDS}-1:0];
 reg     [{WORDLENGTH}-1:0] data_out;
-wire    [{WORDLENGTH}-1:0] O;
+wire    [{WORDLENGTH}-1:0] rd_out;
 
 wire RE;
 wire WE;
-and u1 (RE, ~CSB, ~OEB);
-and u2 (WE, ~CSB, ~WEB);
+and u1 (RE, ~ce_in, ~we_in);
+and u2 (WE, ~ce_in, we_in);
 
 // Initialization for simulation
 integer i;
@@ -119,11 +120,11 @@ initial begin
     data_out = {{{RAND_WIDTH}{{$urandom()}}}};
 end
 
-always @ (posedge CE) begin
+always @ (posedge clk) begin
     if (RE)
-        data_out <= memory[A];
+        data_out <= memory[addr_in];
     if (WE)
-        memory[A] <= I;
+        memory[addr_in] <= wd_in & w_mask_in;
 end
 
 reg NOTIFIER;
@@ -131,7 +132,7 @@ specify
 {specify}
 endspecify
 
-assign O = data_out;
+assign rd_out = data_out;
 
 endmodule
 """.format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
