@@ -1,7 +1,9 @@
 import datetime
 import inspect
 import os
-from typing import Optional, Dict
+import json
+import copy
+from typing import Optional, Dict, List
 
 from hammer.vlsi import HasSDCSupport, TCLTool, HammerTool
 
@@ -23,8 +25,6 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
         result = dict(super().env_vars)
         result.update({
             "SNPSLMD_LICENSE_FILE": self.get_setting("synopsys.SNPSLMD_LICENSE_FILE"),
-            # TODO: this is actually a Mentor Graphics licence, not sure why the old dc scripts depend on it.
-            "MGLS_LICENSE_FILE": self.get_setting("synopsys.MGLS_LICENSE_FILE")
         })
         return result
 
@@ -86,3 +86,129 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
             return ""
         else:
             return synopsys_rm_tarball
+    
+    def child_modules_tcl(self) -> str:
+        """
+        Dumps a list of child instance paths and their ilm directories.
+        Should only be called when self.hierarchical_mode.is_nonleaf_hierarchical()
+        """
+        if self.get_setting("vlsi.inputs.hierarchical.config_source") != "manual":
+            self.logger.warning('''
+            Hierarchical write_regs requires having vlsi.inputs.hierarchical.manual_modules specified.
+            You may have problems with register forcing in gate-level sim.
+            ''')
+            return '''
+set child_modules_ir "./find_child_modules.json"
+set child_modules_ir [open $child_modules_ir "w"]
+puts $child_modules_ir "\\{\\}"
+close $child_modules_ir
+            '''
+        else:
+            # Write out the paths to all child find_regs_paths.json files
+            child_modules = list(next(d for i,d in enumerate(self.get_setting("vlsi.inputs.hierarchical.manual_modules")) if self.top_module in d).values())[0]
+
+            # Get all paths to the child module instances
+            # For P&R, this only works in the flattened ILM state
+            return '''
+set child_modules_ir "./find_child_modules.json"
+set child_modules_ir [open $child_modules_ir "w"]
+puts $child_modules_ir "\\{{"
+
+set cells {{ {CELLS} }}
+set numcells [llength $cells]
+
+for {{set i 0}} {{$i < $numcells}} {{incr i}} {{
+    set cell [lindex $cells $i]
+    set inst_paths [get_db [get_db modules -if {{.name==$cell}}] .hinsts.name]
+    set inst_paths [join $inst_paths "\\", \\""]
+    if {{$i == $numcells - 1}} {{
+        puts $child_modules_ir "    \\"$cell\\": \\[\\"$inst_paths\\"\\]"
+    }} else {{
+        puts $child_modules_ir "    \\"$cell\\": \\[\\"$inst_paths\\"\\],"
+    }}
+}}
+
+puts $child_modules_ir "\\}}"
+
+close $child_modules_ir
+        '''.format(CELLS=" ".join(child_modules))
+
+    def write_regs_tcl(self) -> str:
+        return '''
+set write_cells_ir "./find_regs_cells.json"
+set write_cells_ir [open $write_cells_ir "w"]
+puts $write_cells_ir "\\["
+set index 0 
+set len_regs [sizeof_collection [all_registers]]
+
+foreach_in_collection reg [all_registers] {
+    set name [get_attribute $reg full_name]
+    if { $index == $len_regs - 1 } {
+        puts $write_cells_ir "   \\"$name\\" " 
+    } else {
+        puts $write_cells_ir "   \\"$name\\", " 
+    }
+    incr index 
+}
+
+puts $write_cells_ir "\\]"
+close $write_cells_ir
+set write_regs_ir "./find_regs_paths.json"
+set write_regs_ir [open $write_regs_ir "w"]
+puts $write_regs_ir "\\["
+
+set len_regs [sizeof_collection [all_registers -output_pins -edge_triggered]]
+
+set index 0
+foreach_in_collection reg [all_registers -output_pins -edge_triggered] {
+    set name [get_attribute $reg full_name]
+    if { $index == $len_regs - 1 } {
+        puts $write_regs_ir "   \\"$name\\" " 
+    } else {
+        puts $write_regs_ir "   \\"$name\\", " 
+    }
+    incr index 
+}
+
+puts $write_regs_ir "\\]"
+
+close $write_regs_ir
+        '''
+
+    def process_reg_paths(self, path: str) -> bool:
+        # Post-process the all_regs list here to avoid having too much logic in TCL
+        with open(path, "r+") as f:
+            reg_paths = json.load(f)
+            output_paths = [] #  type: List[Dict[str,str]]
+            assert isinstance(reg_paths, List), "Output find_regs_paths.json should be a json list of strings"
+            for i in range(len(reg_paths)):
+                split = reg_paths[i].split("/")
+                # If the net is part of a generate block, the generated names have a "." in them and the whole name
+                # needs to be escaped.
+                for index, node in enumerate(split):
+                    if "." in node:
+                        split[index] = "\\" + node + "\\"
+                # If the last net is part of a bus, it needs to be escaped
+                if split[-2][-1] == "]":
+                    split[-2] = "\\" + split[-2]
+                    reg_paths[i] = {"path" : '/'.join(split[0:len(split)-1]), "pin" : split[-1]}
+                else:
+                    reg_paths[i] = {"path" : '/'.join(split[0:len(split)-1]), "pin" : split[-1]}
+
+            # For parent hierarchical modules, append all child instance regs
+            if self.hierarchical_mode.is_nonleaf_hierarchical():
+                with open(os.path.join(os.path.dirname(path), "find_child_modules.json"), "r") as cmf:
+                    mod_paths = json.load(cmf)
+                for mod_path in mod_paths.items():
+                    ilm = next(i for i in self.get_input_ilms() if i.module == mod_path[0])  # type: ILMStruct
+                    with open(os.path.join(os.path.dirname(ilm.dir), "find_regs_paths.json"), "r") as crf:
+                        child_regs = json.load(crf)
+                    for inst_path in mod_path[1]:
+                        prefixed_regs = copy.deepcopy(child_regs)
+                        for reg in prefixed_regs:
+                            reg.update({'path': os.path.join(inst_path, reg['path'])})
+                        reg_paths.extend(prefixed_regs)
+
+            f.seek(0) # Move to beginning to rewrite file
+            json.dump(reg_paths, f, indent=2) # Elide the truncation because we are always increasing file size
+        return True
