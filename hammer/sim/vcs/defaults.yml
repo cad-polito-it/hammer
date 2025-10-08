@@ -4,6 +4,10 @@ sim.vcs:
   # Location of the binary.
   vcs_bin: "${synopsys.synopsys_home}/vcs/${sim.vcs.version}/bin/vcs"
   vcs_bin_meta: lazysubst
+  vc_fcc_bin: "${synopsys.synopsys_home}/vcs/${sim.vcs.version}/bin/vc_fcc"
+  vc_fcc_bin_meta: lazysubst
+  vc_fcm_bin: "${synopsys.synopsys_home}/vcs/${sim.vcs.version}/bin/vc_fcm"
+  vc_fcm_bin_meta: lazysubst
   vcs_home: "${synopsys.synopsys_home}/vcs/${sim.vcs.version}"
   vcs_home_meta: lazysubst
   verdi_home: "${synopsys.synopsys_home}/verdi/${sim.vcs.version}"
