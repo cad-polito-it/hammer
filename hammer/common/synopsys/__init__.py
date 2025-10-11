@@ -142,7 +142,7 @@ set index 0
 set len_regs [sizeof_collection [all_registers]]
 
 foreach_in_collection reg [all_registers] {
-    set name [get_attribute $reg full_name]
+    set name [get_attribute $reg ref_name]
     if { $index == $len_regs - 1 } {
         puts $write_cells_ir "   \\"$name\\" " 
     } else {
