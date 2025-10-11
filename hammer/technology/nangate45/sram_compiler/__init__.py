@@ -41,7 +41,7 @@ class Nangate45SRAMGenerator(OpenROADTool, HammerSRAMGeneratorTool):
             base_dir = os.path.join(openroad, "flow/designs/src/tinyRocket")
 
         tech_cache_dir = os.path.abspath(self.technology.cache_dir)
-        print(tech_cache_dir)
+
         if params.family == "1RW":
             fam_code = params.family
         else:
@@ -78,153 +78,54 @@ class Nangate45SRAMGenerator(OpenROADTool, HammerSRAMGeneratorTool):
                 for specify_j in range(0, params.width):
                     for specify_i in range(0, 2):
                         if specify_i == 0:
-                            specify += "$setuphold(posedge ce_in, %s wd_in[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s R0_data[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s W0_data[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
                         else:
-                            specify += "$setuphold(posedge ce_in, %s wd_in[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
-                    specify += "(ce_in => rd_out[%d]) = 0;\n" % (specify_j)
+                            specify += "$setuphold(posedge ce_in, %s R0_data[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s W0_data[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                    specify += "(ce_in => R0_data[%d]) = 0;\n" % (specify_j)
+                    specify += "(ce_in => W0_data[%d]) = 0;\n" % (specify_j)
                 for specify_k in range(0, math.ceil(math.log2(params.depth))):
                     for specify_i in range(0, 2):
                         if specify_i == 0:
-                            specify += "$setuphold(posedge ce_in, %s addr_in[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s R0_addr[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s W0_addr[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
                         else:
-                            specify += "$setuphold(posedge ce_in, %s addr_in[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s R0_addr[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s W0_addr[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
                 f.write("""
 `timescale 1ns/100fs
-                       
-module {NAME} (addr_in,clk,ce_in,we_in,w_mask_in,wd_in,rd_out);
+module {NAME} (R0_addr, R0_data, W0_addr, W0_en, W0_clk, W0_data, ce_in);
 
-input clk;
-input ce_in;
-input we_in;
-input [{WORDLENGTH}-1:0] w_mask_in;
+  input  [{NUMADDR}-1:0]       R0_addr;
+  output [{WORDLENGTH}-1:0]    R0_data;
+  input  [{NUMADDR}-1:0]       W0_addr;
+  input         W0_en;
+  input         W0_clk;
+  input  [{WORDLENGTH}-1:0]    W0_data;
+  input         ce_in;
 
-input  [{NUMADDR}-1:0] addr_in;
-input  [{WORDLENGTH}-1:0] wd_in;
-output [{WORDLENGTH}-1:0] rd_out;
+reg     [{WORDLENGTH}-1:0] memory[{NUMWORDS}-1:0] ;
 
-reg     [{WORDLENGTH}-1:0] memory[{NUMWORDS}-1:0];
-reg     [{WORDLENGTH}-1:0] data_out;
-wire    [{WORDLENGTH}-1:0] rd_out;
-
-wire RE;
-wire WE;
-and u1 (RE, ~ce_in, ~we_in);
-and u2 (WE, ~ce_in, we_in);
-
-// Initialization for simulation
+// Initialization for simulation with random values
 integer i;
 initial begin
     for (i = 0; i < {NUMWORDS}; i = i + 1) begin
         memory[i] = {{{RAND_WIDTH}{{$urandom()}}}};
     end
-    data_out = {{{RAND_WIDTH}{{$urandom()}}}};
 end
 
-always @ (posedge clk) begin
-    if (RE)
-        data_out <= memory[addr_in];
-    if (WE)
-        memory[addr_in] <= wd_in & w_mask_in;
-end
+  always @(posedge W0_clk) begin	
+    if (W0_en)	
+      memory[W0_addr] <= W0_data;	
+  end 
 
 reg NOTIFIER;
 specify
 {specify}
 endspecify
 
-assign rd_out = data_out;
-
-endmodule
-""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
-           RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
-            else:
-                specify = ""
-
-                for specify_j in range(0, params.width):
-                    for specify_i in range(0, 2):
-                        if specify_i == 0:
-                            specify += "$setuphold(posedge CE1, %s I1[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
-                            specify += "$setuphold(posedge CE2, %s I2[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
-                        else:
-                            specify += "$setuphold(posedge CE1, %s I1[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
-                            specify += "$setuphold(posedge CE2, %s I2[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
-                    specify += "(CE1 => O1[%d]) = 0;\n" % (specify_j)
-                    specify += "(CE2 => O2[%d]) = 0;\n" % (specify_j)
-                for specify_k in range(0, math.ceil(math.log2(params.depth))):
-                    for specify_i in range(0, 2):
-                        if specify_i == 0:
-                            specify += "$setuphold(posedge CE1, %s A1[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
-                            specify += "$setuphold(posedge CE2, %s A2[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
-                        else:
-                            specify += "$setuphold(posedge CE1, %s A1[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
-                            specify += "$setuphold(posedge CE2, %s A2[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
-                f.write("""
-`timescale 1ns/100fs
-
-module {NAME} (A1,A2,CE1,CE2,WEB1,WEB2,OEB1,OEB2,CSB1,CSB2,I1,I2,O1,O2);
-
-input CE1;
-input CE2;
-input WEB1;
-input WEB2;
-input OEB1;
-input OEB2;
-input CSB1;
-input CSB2;
-
-input  [{NUMADDR}-1:0]    A1;
-input  [{NUMADDR}-1:0]    A2;
-input  [{WORDLENGTH}-1:0] I1;
-input  [{WORDLENGTH}-1:0] I2;
-output [{WORDLENGTH}-1:0] O1;
-output [{WORDLENGTH}-1:0] O2;
-
-reg     [{WORDLENGTH}-1:0] memory[{NUMWORDS}-1:0];
-reg     [{WORDLENGTH}-1:0] data_out1;
-reg     [{WORDLENGTH}-1:0] data_out2;
-wire    [{WORDLENGTH}-1:0] O1;
-wire    [{WORDLENGTH}-1:0] O2;
-
-wire RE1;
-wire RE2;
-wire WE1;
-wire WE2;
-and u1 (RE1, ~CSB1, ~OEB1);
-and u2 (RE2, ~CSB2, ~OEB2);
-and u3 (WE1, ~CSB1, ~WEB1);
-and u4 (WE2, ~CSB2, ~WEB2);
-
-// Initialization for simulation
-integer i;
-initial begin
-    for (i = 0; i < {NUMWORDS}; i = i + 1) begin
-        memory[i] = {{{RAND_WIDTH}{{$urandom()}}}};
-    end
-    data_out1 = {{{RAND_WIDTH}{{$urandom()}}}};
-    data_out2 = {{{RAND_WIDTH}{{$urandom()}}}};
-end
-
-always @ (posedge CE1) begin
-    if (RE1)
-        data_out1 <= memory[A1];
-    if (WE1)
-        memory[A1] <= I1;
-end
-
-always @ (posedge CE2) begin
-    if (RE2)
-        data_out2 <= memory[A2];
-    if (WE2)
-        memory[A2] <= I2;
-end
-
-reg NOTIFIER;
-specify
-{specify}
-endspecify
-
-assign O1 = data_out1;
-assign O2 = data_out2;
+assign R0_data = ce_in ? memory[R0_addr] : {WORDLENGTH}'bx;	
 
 endmodule
 """.format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
