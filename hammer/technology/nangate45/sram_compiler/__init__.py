@@ -95,38 +95,62 @@ class Nangate45SRAMGenerator(OpenROADTool, HammerSRAMGeneratorTool):
                             specify += "$setuphold(posedge ce_in, %s W0_addr[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
                 f.write("""
 `timescale 1ns/100fs
-module {NAME} (R0_addr, R0_data, W0_addr, W0_en, W0_clk, W0_data, ce_in);
+module {NAME} (
+  input  [{NUMADDR}-1:0] RW0_addr,
+  input                   RW0_clk,
+  input  [{WORDLENGTH}-1:0] RW0_wdata,
+  output [{WORDLENGTH}-1:0] RW0_rdata,
+  input                   RW0_en,
+  input                   RW0_wmode,
+  input                   RW0_wmask
+);
 
-  input  [{NUMADDR}-1:0]       R0_addr;
-  output [{WORDLENGTH}-1:0]    R0_data;
-  input  [{NUMADDR}-1:0]       W0_addr;
-  input         W0_en;
-  input         W0_clk;
-  input  [{WORDLENGTH}-1:0]    W0_data;
-  input         ce_in;
+  reg [{WORDLENGTH}-1:0] ram [0:{NUMWORDS}-1];
 
-reg     [{WORDLENGTH}-1:0] memory[{NUMWORDS}-1:0] ;
+  wire                    ram_RW_0_r_en;
+  wire [{NUMADDR}-1:0]    ram_RW_0_r_addr;
+  wire [{WORDLENGTH}-1:0] ram_RW_0_r_data;
+  wire [{WORDLENGTH}-1:0] ram_RW_0_w_data;
+  wire [{NUMADDR}-1:0]    ram_RW_0_w_addr;
+  wire                    ram_RW_0_w_mask;
+  wire                    ram_RW_0_w_en;
+  reg                     ram_RW_0_r_en_pipe_0;
+  reg [{NUMADDR}-1:0]     ram_RW_0_r_addr_pipe_0;
 
-// Initialization for simulation with random values
+  assign ram_RW_0_r_en   = ram_RW_0_r_en_pipe_0;
+  assign ram_RW_0_r_addr = ram_RW_0_r_addr_pipe_0;
+  assign ram_RW_0_r_data = ram[ram_RW_0_r_addr];
+
+  assign ram_RW_0_w_data = RW0_wdata;
+  assign ram_RW_0_w_addr = RW0_addr;
+  assign ram_RW_0_w_mask = RW0_wmask;
+  assign ram_RW_0_w_en   = RW0_en & RW0_wmode;
+
+  assign RW0_rdata = ram_RW_0_r_data;
+
+  always @(posedge RW0_clk) begin
+    if (ram_RW_0_w_en & ram_RW_0_w_mask) begin
+      ram[ram_RW_0_w_addr] <= ram_RW_0_w_data;
+    end
+    ram_RW_0_r_en_pipe_0 <= RW0_en & ~RW0_wmode;
+    if (RW0_en & ~RW0_wmode) begin
+      ram_RW_0_r_addr_pipe_0 <= RW0_addr;
+    end
+  end
+
+`ifndef SYNTHESIS
+`ifdef  RANDOMIZE_REG_INIT 
+
 integer i;
 initial begin
     for (i = 0; i < {NUMWORDS}; i = i + 1) begin
-        memory[i] = {{{RAND_WIDTH}{{$urandom()}}}};
-    end
-end
-
-  always @(posedge W0_clk) begin	
-    if (W0_en)	
-      memory[W0_addr] <= W0_data;	
-  end 
-
-reg NOTIFIER;
-specify
-{specify}
-endspecify
-
-assign R0_data = ce_in ? memory[R0_addr] : {WORDLENGTH}'bx;	
-
+        ram[i] = {{{WORDLENGTH}{{$urandom()}}}};
+end 
+ram_RW_0_r_en_pipe_0 = {{{WORDLENGTH}{{$urandom()}}}};
+ram_RW_0_r_addr_pipe_0 = {{{WORDLENGTH}{{$urandom()}}}};
+end // initial
+`endif // RANDOMIZE
+`endif // SYNTHESIS
 endmodule
 """.format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
            RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
