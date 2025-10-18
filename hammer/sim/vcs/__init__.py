@@ -242,6 +242,8 @@ class VCS(HammerSimTool, SynopsysTool):
         if os.path.exists(os.path.join(self.run_dir, "csrc")):
             shutil.rmtree(os.path.join(self.run_dir, "csrc"))
 
+        # Adding output elaboration dir
+        args.append("-Mdir={}".format(self.run_dir))
         # Generate a simulator
         self.run_executable(args, cwd=self.run_dir)
 
