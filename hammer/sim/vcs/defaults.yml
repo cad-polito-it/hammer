@@ -21,3 +21,5 @@ sim.vcs:
   # Not all designs benefit from parallelized simulation.
   # Use at your own risk - it is known to be buggy!
   fgp: false
+
+sim.gui: false
