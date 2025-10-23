@@ -1,0 +1,2 @@
+fsim.mocksim:
+  temp_folder: null # A folder where mocksim can create files.
