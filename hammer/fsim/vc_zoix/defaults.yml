@@ -4,9 +4,9 @@ fsim.vc_zoix:
   # Location of the binary.
   vcs_bin: "${synopsys.synopsys_home}/vcs/${fsim.vc_zoix.version}/bin/vcs"
   vcs_bin_meta: lazysubst
-  vc_fcc_bin: "${synopsys.synopsys_home}/vcs/V-${fsim.vc_zoix.version}/bin/vc_fcc"
+  vc_fcc_bin: "${synopsys.synopsys_home}/vcs/${fsim.vc_zoix.version}/bin/vc_fcc"
   vc_fcc_bin_meta: lazysubst
-  vc_fcm_bin: "${synopsys.synopsys_home}/vcs/V-${fsim.vc_zoix.version}/bin/vc_fcm"
+  vc_fcm_bin: "${synopsys.synopsys_home}/vcs/${fsim.vc_zoix.version}/bin/vc_fcm"
   vc_fcm_bin_meta: lazysubst
   vcs_home: "${synopsys.synopsys_home}/vcs/${fsim.vc_zoix.version}"
   vcs_home_meta: lazysubst

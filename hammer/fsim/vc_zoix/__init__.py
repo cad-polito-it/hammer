@@ -31,7 +31,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             string_to_append: The new argument string to add.
         """
         modified_lines = []
-        found_line = False
+        args_found = False
+        exec_found = False
 
         try:
             # Read all lines from the file into memory
@@ -47,30 +48,50 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 # 3: The closing quote (e.g., '"')
                 match = re.search(r'(\s*-args\s+")(.*?)"', line)
 
+                # 2. Check for -exec
+                # Regex: (\s*-exec\s+)(.*?)(\s*\\?\s*)$
+                # This captures the prefix (group 1), the command (group 2),
+                # and any trailing whitespace or line continuation '\' (group 3)
+                exec_match = re.search(r'(\s*-exec\s+)(.*?)(\s*\\?\s*)$', line.rstrip())
+
                 if match:
-                    found_line = True
+                    args_found = True
                     prefix = match.group(1)      # e.g., '    -args "'
                     old_args = match.group(2)    # e.g., ''
                     
                     # Get any text that came *after* the closing quote (like a comment or newline)
                     trailing_chars = line[match.end():]
 
-                    if old_args:
-                        # If args already exist, add a space before the new one
-                        new_args = f"{old_args} {string_to_append}"
-                    else:
-                        # If args were empty, just use the new string
-                        new_args = string_to_append
+                    new_args = string_to_append
 
                     # Reconstruct the line
                     new_line = f'{prefix}{new_args}"{trailing_chars}'
+                    modified_lines.append(new_line)
+                elif exec_match:
+                    # --- Handle -exec ---
+                    exec_found = True
+                    prefix = exec_match.group(1)        # '    -exec '
+                    old_exec = exec_match.group(2)      # './simv'
+                    trailing_chars = exec_match.group(3) # ' \'
+
+                    # Clean the old path (e.g., remove './' prefix)
+                    clean_old_exec = old_exec.lstrip('./')
+                    
+                    # Standardize on forward slashes for tool compatibility
+                    new_exec = self.simulator_executable_path
+
+                    # Rebuild the line, adding the newline back
+                    new_line = f'{prefix}{new_exec}{trailing_chars}\n'
                     modified_lines.append(new_line)
                 else:
                     # If it's not the line we're looking for, add it unchanged
                     modified_lines.append(line)
 
-            if not found_line:
-                self.logger.warning("Warning: '-args' line not found in {file_path}. File not modified.")
+            if not args_found:
+                print(f"Warning: '-args' line not found. File not modified for args.")
+                return False
+            if not exec_found:
+                print(f"Warning: '-exec' line not found. File not modified for exec.")
                 return False
 
             # Write the modified lines back to the file
@@ -421,7 +442,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             find_regs_run_tcl.append("exit")
             self.write_contents_to_path("\n".join(find_regs_run_tcl), self.run_tcl_path)
 
-        vcs_bin = self.get_setting("fsim.vc_zoix.vcs_bin")
         for benchmark in self.benchmarks:
             if not os.path.isfile(benchmark):
                 self.logger.error("benchmark not found as expected at {0}".format(benchmark))
@@ -453,6 +473,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             ])
             args.extend(["-ucli", "-do", self.run_tcl_path])
         args.extend(exec_flags_append)
+        for benchmark in self.benchmarks:
+            args.append(benchmark)
 
         args_to_append = " ".join(args)
         if self.append_to_args(self.campaign_tcl, args_to_append) == False:
@@ -464,94 +486,90 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         return True
 
     def fgen(self) -> bool:
-        if(self.sim_type == "fsim"):
-            fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
-            if not os.path.isfile(fcc_bin):
-                self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
-                return False
-            campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
+        #ToDo Check for correct fgen
+        fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
+        if not os.path.isfile(fcc_bin):
+            self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
+            return False
+        campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
 
-            # Build args
-            args = [
-            fcc_bin,
-            "-full64",
-            "-daidir " + campaign_simv_daidir,
-            "-sff " + self.sff_file,
-            "-report " + self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
-            "-campaign " + self.campaign_tb_dut.split(".")[-1],
-            "-collapse off",
-            "-overwrite"
-            ]
+        # Build args
+        args = [
+        fcc_bin,
+        "-full64",
+        "-daidir " + campaign_simv_daidir,
+        "-sff " + self.sff_file,
+        "-report " + self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
+        "-campaign " + self.campaign_tb_dut.split(".")[-1],
+        "-collapse off",
+        "-overwrite"
+        ]
 
-            HammerVLSILogging.enable_colour = False
-            HammerVLSILogging.enable_tag = False
+        HammerVLSILogging.enable_colour = False
+        HammerVLSILogging.enable_tag = False
 
-            # Generate a simulator
-            self.run_executable(args, cwd=self.run_dir)
+        # Generate a simulator
+        self.run_executable(args, cwd=self.run_dir)
 
-            HammerVLSILogging.enable_colour = True
-            HammerVLSILogging.enable_tag = True
+        HammerVLSILogging.enable_colour = True
+        HammerVLSILogging.enable_tag = True
 
-            return True
-        else:
-            return True
+        return True
 
     def fcc(self) -> bool:
-        if(self.sim_type == "fsim"):
-            fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
-            if not os.path.isfile(fcc_bin):
-                self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
-                return False
-            campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
+        #ToDo Check for correct fault collapsing
+        fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
+        if not os.path.isfile(fcc_bin):
+            self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
+            return False
+        campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
 
-            # Build args
-            args = [
-            fcc_bin,
-            "-full64",
-            "-daidir " + campaign_simv_daidir, 
-            "-sff " + self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
-            "-campaign " + self.campaign_tb_dut.split(".")[-1],
-            "-overwrite"
-            ]
+        # Build args
+        args = [
+        fcc_bin,
+        "-full64",
+        "-daidir " + campaign_simv_daidir, 
+        "-sff " + self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
+        "-campaign " + self.campaign_tb_dut.split(".")[-1],
+        "-overwrite"
+        ]
 
-            HammerVLSILogging.enable_colour = False
-            HammerVLSILogging.enable_tag = False
+        HammerVLSILogging.enable_colour = False
+        HammerVLSILogging.enable_tag = False
 
-            # Generate a simulator
-            self.run_executable(args, cwd=self.run_dir)
+        # Generate a simulator
+        self.run_executable(args, cwd=self.run_dir)
 
-            HammerVLSILogging.enable_colour = True
-            HammerVLSILogging.enable_tag = True
+        HammerVLSILogging.enable_colour = True
+        HammerVLSILogging.enable_tag = True
 
-            return True
-        else:
-            return True
+        return True
 
     def fcm(self) -> bool:
-        if(self.sim_type == "fsim"):
-            fcm_bin = self.get_setting("fsim.vc_zoix.vc_fcm_bin")
-            if not os.path.isfile(fcm_bin):
-                self.logger.error("VC Z01X binary not found as expected at {0}".format(fcm_bin))
-                return False
+        #ToDo Check for completed fsim
+        fcm_bin = self.get_setting("fsim.vc_zoix.vc_fcm_bin")
+        if not os.path.isfile(fcm_bin):
+            self.logger.error("VC Z01X binary not found as expected at {0}".format(fcm_bin))
+            return False
 
-            # Build args
-            args = [
-            fcm_bin,
-            "-tcl_script",
-            self.campaign_tcl,
-            "-campaign",
-            self.campaign_tb_dut.split(".")[-1],
-            "-connect"
-            ]
+        # Build args
+        args = [
+        fcm_bin,
+        "-tcl_script",
+        self.campaign_tcl,
+        "-campaign",
+        self.campaign_tb_dut.split(".")[-1],
+        "-connect"
+        ]
 
-            HammerVLSILogging.enable_colour = False
-            HammerVLSILogging.enable_tag = False
+        HammerVLSILogging.enable_colour = False
+        HammerVLSILogging.enable_tag = False
 
-            # Generate a simulator
-            self.run_executable(args, cwd=self.run_dir)
+        # Generate a simulator
+        self.run_executable(args, cwd=self.run_dir)
 
-            HammerVLSILogging.enable_colour = True
-            HammerVLSILogging.enable_tag = True
+        HammerVLSILogging.enable_colour = True
+        HammerVLSILogging.enable_tag = True
 
         return True
 
