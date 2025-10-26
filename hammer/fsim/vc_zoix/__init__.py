@@ -2,7 +2,7 @@
 #
 #  See LICENSE for license details.
 
-from hammer.vlsi import HammerSimTool, HammerToolStep, HammerLSFSubmitCommand, HammerLSFSettings
+from hammer.vlsi import HammerFaultSimTool, HammerToolStep, HammerLSFSubmitCommand, HammerLSFSettings
 from hammer.common.synopsys import SynopsysTool
 from hammer.logging import HammerVLSILogging
 
@@ -20,20 +20,86 @@ import shutil
 import json
 from multiprocessing import Process
 
-class VCS(HammerSimTool, SynopsysTool):
+class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
+
+    def append_to_args(self, file_path: str, string_to_append: str) -> bool:
+        """
+        Finds the '-args' line in a file and appends a string inside the quotes.
+
+        Args:
+            file_path: The path to the file to modify.
+            string_to_append: The new argument string to add.
+        """
+        modified_lines = []
+        found_line = False
+
+        try:
+            # Read all lines from the file into memory
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+
+            # Process each line
+            for line in lines:
+                # Use regex to find the line with -args
+                # This captures three groups:
+                # 1: The part before the content (e.g., '    -args "')
+                # 2: The content currently inside the quotes (e.g., '')
+                # 3: The closing quote (e.g., '"')
+                match = re.search(r'(\s*-args\s+")(.*?)"', line)
+
+                if match:
+                    found_line = True
+                    prefix = match.group(1)      # e.g., '    -args "'
+                    old_args = match.group(2)    # e.g., ''
+                    
+                    # Get any text that came *after* the closing quote (like a comment or newline)
+                    trailing_chars = line[match.end():]
+
+                    if old_args:
+                        # If args already exist, add a space before the new one
+                        new_args = f"{old_args} {string_to_append}"
+                    else:
+                        # If args were empty, just use the new string
+                        new_args = string_to_append
+
+                    # Reconstruct the line
+                    new_line = f'{prefix}{new_args}"{trailing_chars}'
+                    modified_lines.append(new_line)
+                else:
+                    # If it's not the line we're looking for, add it unchanged
+                    modified_lines.append(line)
+
+            if not found_line:
+                self.logger.warning("Warning: '-args' line not found in {file_path}. File not modified.")
+                return False
+
+            # Write the modified lines back to the file
+            with open(file_path, 'w') as f:
+                f.writelines(modified_lines)
+
+        except FileNotFoundError:
+            self.logger.error("Error: File not found at {0}".format(file_path))
+        except Exception as e:
+            self.logger.error("An error occurred: {0}".format(e))
+
+        return True
 
     def tool_config_prefix(self) -> str:
-        return "sim.vcs"
+        return "fsim.vc_zoix"
 
     def fill_outputs(self) -> bool:
         # TODO: support automatic waveform generation in a similar fashion to SAIFs
         self.output_waveforms = []
         self.output_saifs = []
         self.output_top_module = self.top_module
-        self.output_tb_name = self.get_setting("sim.inputs.tb_name")
-        self.output_tb_dut = self.get_setting("sim.inputs.tb_dut")
-        self.output_level = self.get_setting("sim.inputs.level")
-        if self.get_setting("sim.inputs.saif.mode") != "none":
+        self.output_tb_name = self.get_setting("fsim.inputs.tb_name")
+        self.output_tb_dut = self.get_setting("fsim.inputs.tb_dut")
+        self.output_level = self.get_setting("fsim.inputs.level")
+        self.campaign_tb_dut = self.get_setting("fsim.inputs.campaign_tb_dut")
+        self.campaign_tcl = self.get_setting("fsim.inputs.campaign_tcl")
+        self.fault_type = self.get_setting("fsim.inputs.fault_type")
+        self.sff_file = self.get_setting("fsim.inputs.sff_file")
+        if self.get_setting("fsim.inputs.saif.mode") != "none":
             if not self.benchmarks:
                 self.output_saifs.append(os.path.join(self.run_dir, "ucli.saif"))
             for benchmark in self.benchmarks:
@@ -43,9 +109,13 @@ class VCS(HammerSimTool, SynopsysTool):
     @property
     def steps(self) -> List[HammerToolStep]:
         return self.make_steps_from_methods([
+            self.fill_outputs,
             self.write_gl_files,
             self.run_vcs,
-            self.run_simulation
+            self.generate_tcl,
+            self.fgen,
+            self.fcc,
+            self.fcm
             ])
 
     def benchmark_run_dir(self, bmark_path: str) -> str:
@@ -71,10 +141,22 @@ class VCS(HammerSimTool, SynopsysTool):
         return os.path.join(self.run_dir, "run.tcl")
 
     @property
+    def run_fsim_tcl_path(self) -> str:
+        return os.path.join(self.run_dir, "ffsim.tcl")
+
+    @property
+    def fault_report_path(self) -> str:
+        return os.path.join(self.run_dir, self.get_setting("fsim.inputs.output_fault_rpt"))
+
+    @property
+    def fdb_path(self) -> str:
+        return os.path.join(self.run_dir, "fdb")
+
+    @property
     def env_vars(self) -> Dict[str, str]:
         v = dict(super().env_vars)
-        v["VCS_HOME"] = self.get_setting("sim.vcs.vcs_home")
-        v["VERDI_HOME"] = self.get_setting("sim.vcs.verdi_home")
+        v["VCS_HOME"] = self.get_setting("fsim.vc_zoix.vcs_home")
+        v["VERDI_HOME"] = self.get_setting("fsim.vc_zoix.verdi_home")
         v["SNPSLMD_LICENSE_FILE"] = self.get_setting("synopsys.SNPSLMD_LICENSE_FILE")
         return v
 
@@ -88,8 +170,8 @@ class VCS(HammerSimTool, SynopsysTool):
         if self.level == FlowLevel.RTL:
             return True
 
-        tb_prefix = self.get_setting("sim.inputs.tb_dut")
-        force_val = self.get_setting("sim.inputs.gl_register_force_value")
+        tb_prefix = self.get_setting("fsim.inputs.tb_dut")
+        force_val = self.get_setting("fsim.inputs.gl_register_force_value")
 
         abspath_seq_cells = os.path.join(os.getcwd(), self.seq_cells)
         if not os.path.isfile(abspath_seq_cells):
@@ -97,13 +179,10 @@ class VCS(HammerSimTool, SynopsysTool):
 
         with open(self.access_tab_file_path, "w") as f:
             with open(abspath_seq_cells) as seq_file:
-                cells = {}
                 seq_json = json.load(seq_file)
                 assert isinstance(seq_json, List), "list of all sequential cells should be a json list of strings not {}".format(type(seq_json))
                 for cell in seq_json:
-                    if cell not in cells:
-                        f.write("acc:=wn: {cell_name}.*\n".format(cell_name=cell))
-                        cells[cell] = True
+                    f.write("acc=wn:{cell_name}\n".format(cell_name=cell))
 
         abspath_all_regs = os.path.join(os.getcwd(), self.all_regs)
         if not os.path.isfile(abspath_all_regs):
@@ -117,54 +196,46 @@ class VCS(HammerSimTool, SynopsysTool):
                     path = reg["path"]
                     path = '.'.join(path.split('/'))
                     pin = reg["pin"]
-                    f.write("force -deposit {" + tb_prefix + "." + path + "." + pin + "} " + str(force_val) + "\n")
+                    f.write("force -deposit {" + tb_prefix + "." + path + " ." + pin + "} " + str(force_val) + "\n")
 
         return True
 
+    
     def run_vcs(self) -> bool:
         # run through inputs and append to CL arguments
-        vcs_bin = self.get_setting("sim.vcs.vcs_bin")
+        vcs_bin = self.get_setting("fsim.vc_zoix.vcs_bin")
         if not os.path.isfile(vcs_bin):
-          self.logger.error("VCS binary not found as expected at {0}".format(vcs_bin))
-          return False
+            self.logger.error("VCS binary not found as expected at {0}".format(vcs_bin))
+            return False
 
         if not self.check_input_files([".v", ".v.gz", ".sv", ".so", ".cc", ".c"]):
-          return False
+            return False
 
         # We are switching working directories and we still need to find paths
         abspath_input_files = list(map(lambda name: os.path.join(os.getcwd(), name), self.input_files))
-        for v in abspath_input_files:
-            if not os.path.exists(v):
-                self.logger.error("Cannot find %s" % v)
-                return False
 
         top_module = self.top_module
-        compiler_cc_opts = self.get_setting("sim.inputs.compiler_cc_opts", [])
-        compiler_ld_opts = self.get_setting("sim.inputs.compiler_ld_opts", [])
+        compiler_cc_opts = self.get_setting("fsim.inputs.compiler_cc_opts", [])
+        compiler_ld_opts = self.get_setting("fsim.inputs.compiler_ld_opts", [])
         # TODO(johnwright) sanity check the timescale string
-        timescale = self.get_setting("sim.inputs.timescale")
-        options = self.get_setting("sim.inputs.options", [])
-        defines = self.get_setting("sim.inputs.defines", [])
+        timescale = self.get_setting("fsim.inputs.timescale")
+        options = self.get_setting("fsim.inputs.options", [])
+        defines = self.get_setting("fsim.inputs.defines", [])
         access_tab_filename = self.access_tab_file_path
-        tb_name = self.get_setting("sim.inputs.tb_name")
+        tb_name = self.get_setting("fsim.inputs.tb_name")
+        strobe_file_name = self.get_setting("fsim.inputs.strobe_file_name")
+        strobe_file_path = os.path.join(os.getcwd(), strobe_file_name)
 
         # Build args
         args = [
-          vcs_bin,
-          "-full64",
-          "-lca", # enable advanced features access, add'l no-cost licenses may be req'd depending on feature
-          "-debug_access+all" # since I-2014.03, req'd for FSDB dumping & force regs
+        vcs_bin,
+        "-kdb",
+        "-full64",
+        "-lca", # enable advanced features access, add'l no-cost licenses may be req'd depending on feature
+        "-debug_access+all" # since I-2014.03, req'd for FSDB dumping & force regs
         ]
 
-        use_gui = self.get_setting("sim.gui")
-        if use_gui:
-            verdi_home = self.get_setting("sim.vcs.verdi_home")
-            if not os.path.exists(verdi_home):
-                self.logger.error("VERDI home not found as expected at {0}".format(verdi_home))
-                return False
-            args.append("-kdb")
-        
-        if self.get_setting("sim.vcs.fgp") and self.version() >= self.version_number("M-2017.03"):
+        if self.get_setting("fsim.vc_zoix.fgp") and self.version() >= self.version_number("M-2017.03"):
             args.append("-fgp")
 
         if timescale is not None:
@@ -193,6 +264,9 @@ class VCS(HammerSimTool, SynopsysTool):
         # Add in all input files
         args.extend(abspath_input_files)
 
+
+        args.append(strobe_file_path)
+
         # Note: we always want to get the verilog models because most real designs will instantate a few
         # tech-specific cells in the source RTL (IO cells, clock gaters, etc.)
         args.extend(self.get_verilog_models())
@@ -203,7 +277,7 @@ class VCS(HammerSimTool, SynopsysTool):
         if self.level.is_gatelevel():
             args.extend(['-P'])
             args.extend([access_tab_filename])
-            if self.get_setting("sim.inputs.timing_annotated"):
+            if self.get_setting("fsim.inputs.timing_annotated"):
                 args.extend(["+neg_tchk"])
                 args.extend(["+sdfverbose"])
                 args.extend(["-negdelay"])
@@ -219,8 +293,7 @@ class VCS(HammerSimTool, SynopsysTool):
             args.extend(["+delay_mode_zero"])
 
 
-        if tb_name != "":
-            args.extend(["-top", tb_name])
+        args.extend(["-top", "strobe"])
 
         args.extend(['-o', self.simulator_executable_path])
 
@@ -234,6 +307,17 @@ class VCS(HammerSimTool, SynopsysTool):
         # Remove the csrc directory (otherwise the simulator will be stale)
         if os.path.exists(os.path.join(self.run_dir, "csrc")):
             shutil.rmtree(os.path.join(self.run_dir, "csrc"))
+        # Adding output elaboration dir
+        args.append("-Mdir={}".format(self.run_dir))
+
+        args.append("-fsim")
+        args.append("-fsim=dut:" + self.campaign_tb_dut)
+        args.append("-fsim=suppress+cell")
+        args.append("-suppress=TFIPC")
+        args.append("-fsim=class")
+        args.append("+notimingcheck")
+        args.append("+vcs+fsdbon")
+        args.append("+define+fsdb")
 
         # Generate a simulator
         self.run_executable(args, cwd=self.run_dir)
@@ -243,30 +327,26 @@ class VCS(HammerSimTool, SynopsysTool):
 
         return os.path.exists(self.simulator_executable_path)
 
-    def run_simulation(self) -> bool:
-        if not self.get_setting("sim.inputs.execute_sim"):
-            self.logger.warning("Not running any simulations because sim.inputs.execute_sim is unset.")
-            return True
-
+    def generate_tcl(self) -> bool:
         top_module = self.top_module
-        exec_flags_prepend = self.get_setting("sim.inputs.execution_flags_prepend", [])
-        exec_flags = self.get_setting("sim.inputs.execution_flags", [])
-        exec_flags_append = self.get_setting("sim.inputs.execution_flags_append", [])
+        exec_flags_prepend = self.get_setting("fsim.inputs.execution_flags_prepend", [])
+        exec_flags = self.get_setting("fsim.inputs.execution_flags", [])
+        exec_flags_append = self.get_setting("fsim.inputs.execution_flags_append", [])
         force_regs_filename = self.force_regs_file_path
-        tb_prefix = self.get_setting("sim.inputs.tb_dut")
-        saif_mode = self.get_setting("sim.inputs.saif.mode")
+        tb_prefix = self.get_setting("fsim.inputs.tb_dut")
+        saif_mode = self.get_setting("fsim.inputs.saif.mode")
         saif_start_time: Optional[str] = None
         saif_end_time: Optional[str] = None
         saif_start_trigger_raw: Optional[str] = None
         saif_end_trigger_raw: Optional[str] = None
         if saif_mode == "time":
-            saif_start_time = self.get_setting("sim.inputs.saif.start_time")
-            saif_end_time = self.get_setting("sim.inputs.saif.end_time")
+            saif_start_time = self.get_setting("fsim.inputs.saif.start_time")
+            saif_end_time = self.get_setting("fsim.inputs.saif.end_time")
         elif saif_mode == "trigger":
             self.logger.error("Trigger SAIF mode currently unsupported.")
         elif saif_mode == "trigger_raw":
-            saif_start_trigger_raw = self.get_setting("sim.inputs.saif.start_trigger_raw")
-            saif_end_trigger_raw = self.get_setting("sim.inputs.saif.end_trigger_raw")
+            saif_start_trigger_raw = self.get_setting("fsim.inputs.saif.start_trigger_raw")
+            saif_end_trigger_raw = self.get_setting("fsim.inputs.saif.end_trigger_raw")
         elif saif_mode == "full":
             pass
         elif saif_mode == "none":
@@ -341,25 +421,16 @@ class VCS(HammerSimTool, SynopsysTool):
             find_regs_run_tcl.append("exit")
             self.write_contents_to_path("\n".join(find_regs_run_tcl), self.run_tcl_path)
 
-        vcs_bin = self.get_setting("sim.vcs.vcs_bin")
+        vcs_bin = self.get_setting("fsim.vc_zoix.vcs_bin")
         for benchmark in self.benchmarks:
             if not os.path.isfile(benchmark):
-              self.logger.error("benchmark not found as expected at {0}".format(benchmark))
-              return False
+                self.logger.error("benchmark not found as expected at {0}".format(benchmark))
+                return False
 
         # setup simulation arguments
-        args = [ self.simulator_executable_path ]
-
-        use_gui = self.get_setting("sim.gui")
-        if use_gui:
-            verdi_home = self.get_setting("sim.vcs.verdi_home")
-            if not os.path.exists(verdi_home):
-                self.logger.error("VERDI home not found as expected at {0}".format(verdi_home))
-                return False
-            args.append("-gui")
-
+        args = [ ]
         args.extend(exec_flags_prepend)
-        if self.get_setting("sim.vcs.fgp") and self.version() >= self.version_number("M-2017.03"):
+        if self.get_setting("fsim.vc_zoix.fgp") and self.version() >= self.version_number("M-2017.03"):
             # num_threads is in addition to a master thread, so reduce by 1
             num_threads=int(self.get_setting("vlsi.core.max_threads")) - 1
             args.append("-fgp=num_threads:{threads},num_fsdb_threads:0,allow_less_cores,dynamictoggle".format(threads=max(num_threads,1)))
@@ -383,45 +454,105 @@ class VCS(HammerSimTool, SynopsysTool):
             args.extend(["-ucli", "-do", self.run_tcl_path])
         args.extend(exec_flags_append)
 
-        HammerVLSILogging.enable_colour = False
-        HammerVLSILogging.enable_tag = False
-
-        # Our current invocation of VCS is only using a single core
-        if isinstance(self.submit_command, HammerLSFSubmitCommand):
-            old_settings = self.submit_command.settings._asdict()
-            del old_settings['num_cpus']
-            self.submit_command.settings = HammerLSFSettings(num_cpus=1, **old_settings)
-
-        # Run the simulations in as many parallel runs as the user wants
-        if self.get_setting("sim.inputs.parallel_runs") == 0:
-            runs = 1
-        else:
-            runs = self.get_setting("sim.inputs.parallel_runs")
-        bp = [] #  type: List[Process]
-        running = 0
-        ran = 0
-        for benchmark in self.benchmarks:
-            bmark_run_dir = self.benchmark_run_dir(benchmark)
-            # Make the rundir if it does not exist
-            hammer_utils.mkdir_p(bmark_run_dir)
-            if runs > 0 and running >= runs: # We are currently running the maximum number so we join first
-                bp[ran].join()
-                ran = ran + 1
-                running = running - 1
-            bp.append(Process(target=self.run_executable, args=(args + [benchmark],), kwargs={'cwd':bmark_run_dir}))
-            bp[-1].start()
-            running = running + 1
-        # Make sure we join all remaining runs
-        for p in bp:
-            p.join()
-
-
-        if self.benchmarks == []:
-            self.run_executable(args, cwd=self.run_dir)
+        args_to_append = " ".join(args)
+        if self.append_to_args(self.campaign_tcl, args_to_append) == False:
+            return False
 
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
 
         return True
 
-tool = VCS
+    def fgen(self) -> bool:
+        if(self.sim_type == "fsim"):
+            fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
+            if not os.path.isfile(fcc_bin):
+                self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
+                return False
+            campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
+
+            # Build args
+            args = [
+            fcc_bin,
+            "-full64",
+            "-daidir " + campaign_simv_daidir,
+            "-sff " + self.sff_file,
+            "-report " + self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
+            "-campaign " + self.campaign_tb_dut.split(".")[-1],
+            "-collapse off",
+            "-overwrite"
+            ]
+
+            HammerVLSILogging.enable_colour = False
+            HammerVLSILogging.enable_tag = False
+
+            # Generate a simulator
+            self.run_executable(args, cwd=self.run_dir)
+
+            HammerVLSILogging.enable_colour = True
+            HammerVLSILogging.enable_tag = True
+
+            return True
+        else:
+            return True
+
+    def fcc(self) -> bool:
+        if(self.sim_type == "fsim"):
+            fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
+            if not os.path.isfile(fcc_bin):
+                self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
+                return False
+            campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
+
+            # Build args
+            args = [
+            fcc_bin,
+            "-full64",
+            "-daidir " + campaign_simv_daidir, 
+            "-sff " + self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
+            "-campaign " + self.campaign_tb_dut.split(".")[-1],
+            "-overwrite"
+            ]
+
+            HammerVLSILogging.enable_colour = False
+            HammerVLSILogging.enable_tag = False
+
+            # Generate a simulator
+            self.run_executable(args, cwd=self.run_dir)
+
+            HammerVLSILogging.enable_colour = True
+            HammerVLSILogging.enable_tag = True
+
+            return True
+        else:
+            return True
+
+    def fcm(self) -> bool:
+        if(self.sim_type == "fsim"):
+            fcm_bin = self.get_setting("fsim.vc_zoix.vc_fcm_bin")
+            if not os.path.isfile(fcm_bin):
+                self.logger.error("VC Z01X binary not found as expected at {0}".format(fcm_bin))
+                return False
+
+            # Build args
+            args = [
+            fcm_bin,
+            "-tcl_script",
+            self.campaign_tcl,
+            "-campaign",
+            self.campaign_tb_dut.split(".")[-1],
+            "-connect"
+            ]
+
+            HammerVLSILogging.enable_colour = False
+            HammerVLSILogging.enable_tag = False
+
+            # Generate a simulator
+            self.run_executable(args, cwd=self.run_dir)
+
+            HammerVLSILogging.enable_colour = True
+            HammerVLSILogging.enable_tag = True
+
+        return True
+
+tool = VC_ZOIX

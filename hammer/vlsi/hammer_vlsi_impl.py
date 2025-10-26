@@ -1650,6 +1650,259 @@ class HammerSimTool(HammerTool):
 
     ### END Generated interface HammerSimTool ###
 
+
+class HammerFaultSimTool(HammerTool):
+
+    def export_config_outputs(self) -> Dict[str, Any]:
+        outputs = deepdict(super().export_config_outputs())
+        outputs["fsim.outputs.waveforms"] = self.output_waveforms
+        outputs["fsim.outputs.saifs"] = self.output_saifs
+        outputs["fsim.outputs.output_top_module"] = self.output_top_module
+        outputs["fsim.outputs.output_tb_name"] = self.output_tb_name
+        outputs["fsim.outputs.output_tb_dut"] = self.output_tb_dut
+        outputs["fsim.outputs.output_level"] = self.output_level
+        return outputs
+
+    @property
+    def level(self) -> FlowLevel:
+        """Return the flow level."""
+        return FlowLevel.from_str(self.get_setting("fsim.inputs.level"))
+
+    @property
+    def benchmarks(self) -> List[str]:
+        """Return the benchmarks to run."""
+        # TODO(ucb-bar/hammer#462) We may want to make these keys that point to a "Benchmarks" library type
+        bms = list(self.get_setting("fsim.inputs.benchmarks", []))  # type: List[str]
+        return bms
+
+    ### Generated interface HammerFaultSimTool ###
+    ### DO NOT MODIFY THIS CODE, EDIT generate_properties.py INSTEAD ###
+    ### Inputs ###
+
+    @property
+    def top_module(self) -> str:
+        """
+        Get the top RTL module.
+
+        :return: The top RTL module.
+        """
+        try:
+            return self.attr_getter("_top_module", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the top RTL module yet")
+
+    @top_module.setter
+    def top_module(self, value: str) -> None:
+        """Set the top RTL module."""
+        if not (isinstance(value, str)):
+            raise TypeError("top_module must be a str")
+        self.attr_setter("_top_module", value)
+
+
+    @property
+    def input_files(self) -> List[str]:
+        """
+        Get the paths to input verilog files.
+
+        :return: The paths to input verilog files.
+        """
+        try:
+            return self.attr_getter("_input_files", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the paths to input verilog files yet")
+
+    @input_files.setter
+    def input_files(self, value: List[str]) -> None:
+        """Set the paths to input verilog files."""
+        if not (isinstance(value, List)):
+            raise TypeError("input_files must be a List[str]")
+        self.attr_setter("_input_files", value)
+
+
+    @property
+    def all_regs(self) -> str:
+        """
+        Get the path to list of all registers in the design with output pin.
+
+        :return: The path to list of all registers in the design with output pin.
+        """
+        try:
+            return self.attr_getter("_all_regs", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the path to list of all registers in the design with output pin yet")
+
+    @all_regs.setter
+    def all_regs(self, value: str) -> None:
+        """Set the path to list of all registers in the design with output pin."""
+        if not (isinstance(value, str)):
+            raise TypeError("all_regs must be a str")
+        self.attr_setter("_all_regs", value)
+
+
+    @property
+    def seq_cells(self) -> str:
+        """
+        Get the path to collection of all sequential standard cells in design.
+
+        :return: The path to collection of all sequential standard cells in design.
+        """
+        try:
+            return self.attr_getter("_seq_cells", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the path to collection of all sequential standard cells in design yet")
+
+    @seq_cells.setter
+    def seq_cells(self, value: str) -> None:
+        """Set the path to collection of all sequential standard cells in design."""
+        if not (isinstance(value, str)):
+            raise TypeError("seq_cells must be a str")
+        self.attr_setter("_seq_cells", value)
+
+
+    @property
+    def sdf_file(self) -> Optional[str]:
+        """
+        Get the optional SDF file needed for timing annotated gate level sims.
+
+        :return: The optional SDF file needed for timing annotated gate level sims.
+        """
+        try:
+            return self.attr_getter("_sdf_file", None)
+        except AttributeError:
+            return None
+
+    @sdf_file.setter
+    def sdf_file(self, value: Optional[str]) -> None:
+        """Set the optional SDF file needed for timing annotated gate level sims."""
+        if not (isinstance(value, str) or (value is None)):
+            raise TypeError("sdf_file must be a Optional[str]")
+        self.attr_setter("_sdf_file", value)
+
+
+    ### Outputs ###
+
+    @property
+    def output_waveforms(self) -> List[str]:
+        """
+        Get the paths to output waveforms.
+
+        :return: The paths to output waveforms.
+        """
+        try:
+            return self.attr_getter("_output_waveforms", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the paths to output waveforms yet")
+
+    @output_waveforms.setter
+    def output_waveforms(self, value: List[str]) -> None:
+        """Set the paths to output waveforms."""
+        if not (isinstance(value, List)):
+            raise TypeError("output_waveforms must be a List[str]")
+        self.attr_setter("_output_waveforms", value)
+
+
+    @property
+    def output_saifs(self) -> List[str]:
+        """
+        Get the paths to output activity files.
+
+        :return: The paths to output activity files.
+        """
+        try:
+            return self.attr_getter("_output_saifs", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the paths to output activity files yet")
+
+    @output_saifs.setter
+    def output_saifs(self, value: List[str]) -> None:
+        """Set the paths to output activity files."""
+        if not (isinstance(value, List)):
+            raise TypeError("output_saifs must be a List[str]")
+        self.attr_setter("_output_saifs", value)
+
+
+    @property
+    def output_top_module(self) -> str:
+        """
+        Get the top RTL module.
+
+        :return: The top RTL module.
+        """
+        try:
+            return self.attr_getter("_output_top_module", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the top RTL module yet")
+
+    @output_top_module.setter
+    def output_top_module(self, value: str) -> None:
+        """Set the top RTL module."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_top_module must be a str")
+        self.attr_setter("_output_top_module", value)
+
+
+    @property
+    def output_tb_name(self) -> str:
+        """
+        Get the sim testbench name.
+
+        :return: The sim testbench name.
+        """
+        try:
+            return self.attr_getter("_output_tb_name", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the sim testbench name yet")
+
+    @output_tb_name.setter
+    def output_tb_name(self, value: str) -> None:
+        """Set the sim testbench name."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_tb_name must be a str")
+        self.attr_setter("_output_tb_name", value)
+
+
+    @property
+    def output_tb_dut(self) -> str:
+        """
+        Get the sim DUT instance name.
+
+        :return: The sim DUT instance name.
+        """
+        try:
+            return self.attr_getter("_output_tb_dut", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the sim DUT instance name yet")
+
+    @output_tb_dut.setter
+    def output_tb_dut(self, value: str) -> None:
+        """Set the sim DUT instance name."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_tb_dut must be a str")
+        self.attr_setter("_output_tb_dut", value)
+
+
+    @property
+    def output_level(self) -> str:
+        """
+        Get the simulation flow level.
+
+        :return: The simulation flow level.
+        """
+        try:
+            return self.attr_getter("_output_level", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the simulation flow level yet")
+
+    @output_level.setter
+    def output_level(self, value: str) -> None:
+        """Set the simulation flow level."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_level must be a str")
+        self.attr_setter("_output_level", value)
+
+    ### END Generated interface HammerSimTool ###
+
+
 class HammerPowerTool(HammerTool):
 
     @property

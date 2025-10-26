@@ -152,6 +152,7 @@ class CLIDriver:
         self.lvs_rundir = ""  # type: Optional[str]
         self.sram_generator_rundir = ""  # type: Optional[str]
         self.sim_rundir = ""  # type: Optional[str]
+        self.fsim_rundir = ""  # type: Optional[str]
         self.power_rundir = "" # type: Optional[str]
         self.formal_rundir = "" # type: Optional[str]
         self.timing_rundir = "" # type: Optional[str]
@@ -192,10 +193,18 @@ class CLIDriver:
             check_CLIActionType_type(self.sim_action)
         else:
             self.sim_action = self.create_sim_action([])  # type: CLIActionConfigType
+        if hasattr(self, "fsim_action"):
+            check_CLIActionType_type(self.fsim_action)
+        else:
+            self.fsim_action = self.create_fsim_action([])  # type: CLIActionConfigType
         if hasattr(self, "synthesis_sim_action"):
             check_CLIActionType_type(self.synthesis_sim_action)
         else:
             self.synthesis_sim_action = self.create_synthesis_sim_action(self.synthesis_action, self.sim_action)  # type: CLIActionConfigType
+        if hasattr(self, "synthesis_fsim_action"):
+            check_CLIActionType_type(self.synthesis_fsim_action)
+        else:
+            self.synthesis_fsim_action = self.create_synthesis_fsim_action(self.synthesis_action, self.fsim_action)  # type: CLIActionConfigType
         if hasattr(self, "par_sim_action"):
             check_CLIActionType_type(self.par_sim_action)
         else:
@@ -221,6 +230,7 @@ class CLIDriver:
         self.hierarchical_drc_actions = {}  # type: Dict[str, CLIActionConfigType]
         self.hierarchical_lvs_actions = {}  # type: Dict[str, CLIActionConfigType]
         self.hierarchical_sim_actions = {}  # type: Dict[str, CLIActionConfigType]
+        self.hierarchical_fsim_actions = {}  # type: Dict[str, CLIActionConfigType]
         self.hierarchical_power_actions = {}  # type: Dict[str, CLIActionConfigType]
         self.hierarchical_formal_actions = {}  # type: Dict[str, CLIActionConfigType]
         self.hierarchical_timing_actions = {}  # type: Dict[str, CLIActionConfigType]
@@ -259,6 +269,7 @@ class CLIDriver:
             "drc": self.drc_action,
             "lvs": self.lvs_action,
             "sim": self.sim_action,
+            "fsim": self.fsim_action,
             "simulation": self.sim_action,
             "synthesis_to_sim": self.synthesis_to_sim_action,
             "synthesis-to-sim": self.synthesis_to_sim_action,
@@ -268,6 +279,14 @@ class CLIDriver:
             "synthesis-sim": self.synthesis_sim_action,
             "syn_sim": self.synthesis_sim_action,
             "syn-sim": self.synthesis_sim_action,
+            "synthesis_to_fsim": self.synthesis_to_fsim_action,
+            "synthesis-to-fsim": self.synthesis_to_fsim_action,
+            "syn_to_fsim": self.synthesis_to_fsim_action,
+            "syn-to-fsim": self.synthesis_to_fsim_action,
+            "synthesis_fsim": self.synthesis_fsim_action,
+            "synthesis-fsim": self.synthesis_fsim_action,
+            "syn_fsim": self.synthesis_fsim_action,
+            "syn-fsim": self.synthesis_fsim_action,
             "par_to_sim": self.par_to_sim_action,
             "par-to-sim": self.par_to_sim_action,
             "par_sim": self.par_sim_action,
@@ -479,6 +498,14 @@ class CLIDriver:
         return self.create_action("sim", hooks if len(hooks) > 0 else None,
                                   pre_action_func, post_load_func, post_run_func)
 
+    def create_fsim_action(self, custom_hooks: List[HammerToolHookAction],
+                          pre_action_func: Optional[Callable[[HammerDriver], None]] = None,
+                          post_load_func: Optional[Callable[[HammerDriver], None]] = None,
+                          post_run_func: Optional[Callable[[HammerDriver], None]] = None) -> CLIActionConfigType:
+        hooks = self.get_extra_sim_hooks() + custom_hooks  # type: List[HammerToolHookAction]
+        return self.create_action("fsim", hooks if len(hooks) > 0 else None,
+                                  pre_action_func, post_load_func, post_run_func)
+
     def create_power_action(self, custom_hooks: List[HammerToolHookAction],
                           pre_action_func: Optional[Callable[[HammerDriver], None]] = None,
                           post_load_func: Optional[Callable[[HammerDriver], None]] = None,
@@ -672,6 +699,26 @@ class CLIDriver:
                 if driver.dump_history:
                     dump_config_to_yaml_file(os.path.join(driver.sim_tool.run_dir, "sim-output-history.yml"),
                                             add_key_history(self.get_full_config(driver, output), key_history))
+            elif action_type == "fsim":
+                if not driver.load_fsim_tool(get_or_else(self.fsim_rundir, "")):
+                    return None
+                else:
+                    post_load_func_checked(driver)
+                assert driver.fsim_tool is not None, "load_fsim_tool was unsuccessful"
+                success, output = driver.run_fsim(
+                        driver.fsim_tool.get_tool_hooks() + \
+                        driver.tech.get_tech_sim_hooks(driver.fsim_tool.name) + \
+                        list(extra_hooks or []))
+                if not success:
+                    driver.log.error("FSim tool did not succeed")
+                    return None
+                post_run_func_checked(driver)
+                dump_config_to_json_file(os.path.join(driver.fsim_tool.run_dir, "fsim-output.json"), output)
+                dump_config_to_json_file(os.path.join(driver.fsim_tool.run_dir, "fsim-output-full.json"),
+                                         self.get_full_config(driver, output))
+                if driver.dump_history:
+                    dump_config_to_yaml_file(os.path.join(driver.fsim_tool.run_dir, "fsim-output-history.yml"),
+                                            add_key_history(self.get_full_config(driver, output), key_history))
             elif action_type == "power":
                 if not driver.load_power_tool(get_or_else(self.power_rundir, "")):
                     return None
@@ -773,6 +820,15 @@ class CLIDriver:
             return None
         else:
             return self.get_full_config(driver, sim_input_only)
+
+    def synthesis_to_fsim_action(self, driver: HammerDriver, append_error_func: Callable[[str], None]) -> Optional[dict]:
+        """Create a full config to run the output."""
+        fsim_input_only = HammerDriver.synthesis_output_to_fsim_input(driver.project_config)
+        if fsim_input_only is None:
+            driver.log.error("Input config does not appear to contain valid synthesis outputs")
+            return None
+        else:
+            return self.get_full_config(driver, fsim_input_only)
 
     def par_to_sim_action(self, driver: HammerDriver, append_error_func: Callable[[str], None]) -> Optional[dict]:
         """Create a full config to run the output."""
@@ -939,6 +995,38 @@ class CLIDriver:
 
         return syn_sim_action
 
+    def create_synthesis_fsim_action(self, synthesis_action: CLIActionConfigType, fsim_action: CLIActionConfigType) -> CLIActionConfigType:
+        """
+        Create a parameterizable synthesis_fsim action for the CLIDriver.
+
+        :param synthesis_action: synthesis action
+        :param fsim_action: fsim action
+        :return: Custom synthesis_fsim action
+        """
+
+        def syn_fsim_action(driver: HammerDriver, append_error_func: Callable[[str], None]) -> Optional[dict]:
+            # Synthesis output.
+            syn_output = synthesis_action(driver, append_error_func)
+            if syn_output is None:
+                append_error_func("Synthesis action in syn_fsim failed")
+                return None
+            else:
+                # Generate fsim input from the synthesis output.
+                syn_output_converted = HammerDriver.synthesis_output_to_fsim_input(syn_output)
+                assert syn_output_converted is not None, "syn_output must be generated by CLIDriver"
+                fsim_input = self.get_full_config(driver, syn_output_converted)  # type: dict
+
+                # Dump both synthesis output and fsim input for debugging/resuming.
+                assert driver.syn_tool is not None, "Syn tool must exist since we ran synthesis_action successfully"
+                dump_config_to_json_file(os.path.join(driver.syn_tool.run_dir, "fsim-input.json"), fsim_input)
+
+                # Use new fsim input and run fsimulation.
+                driver.update_project_configs([fsim_input])
+                fsim_output = fsim_action(driver, append_error_func)
+                return fsim_output
+
+        return syn_fsim_action
+
     def create_par_sim_action(self, par_action: CLIActionConfigType, sim_action: CLIActionConfigType) -> CLIActionConfigType:
         """
         Create a parameterizable par_sim action for the CLIDriver.
@@ -1031,6 +1119,12 @@ class CLIDriver:
                 "sim_{block}"
             ], module, action)
 
+        for module, action in self.hierarchical_fsim_actions.items():
+            add_variants([
+                "fsim-{block}",
+                "fsim_{block}"
+            ], module, action)
+
         for module, action in self.hierarchical_power_actions.items():
             add_variants([
                 "power-{block}",
@@ -1090,6 +1184,15 @@ class CLIDriver:
     def get_extra_hierarchical_sim_hooks(self, driver: HammerDriver) -> Dict[str, List[HammerToolHookAction]]:
         """
         Return a list of extra hierarchical sim hooks in this project.
+        To be overridden by subclasses.
+
+        :return: Dictionary of (module name, list of hooks)
+        """
+        return dict()
+
+    def get_extra_hierarchical_fsim_hooks(self, driver: HammerDriver) -> Dict[str, List[HammerToolHookAction]]:
+        """
+        Return a list of extra hierarchical fsim hooks in this project.
         To be overridden by subclasses.
 
         :return: Dictionary of (module name, list of hooks)
@@ -1196,6 +1299,18 @@ class CLIDriver:
         Get the action associated with hierarchical sim for the given module (in hierarchical flows).
         """
         return self.hierarchical_sim_actions[module]
+
+    def set_hierarchical_fsim_action(self, module: str, action: CLIActionConfigType) -> None:
+        """
+        Set the action associated with hierarchical fsim for the given module (in hierarchical flows).
+        """
+        self.hierarchical_fsim_actions[module] = action
+
+    def get_hierarchical_fsim_action(self, module: str) -> CLIActionConfigType:
+        """
+        Get the action associated with hierarchical fsim for the given module (in hierarchical flows).
+        """
+        return self.hierarchical_fsim_actions[module]
 
     def set_hierarchical_power_action(self, module: str, action: CLIActionConfigType) -> None:
         """
@@ -1338,6 +1453,7 @@ class CLIDriver:
         self.drc_rundir = get_nonempty_str(args['drc_rundir'])
         self.lvs_rundir = get_nonempty_str(args['lvs_rundir'])
         self.sim_rundir = get_nonempty_str(args['sim_rundir'])
+        self.fsim_rundir = get_nonempty_str(args['fsim_rundir'])
         self.power_rundir = get_nonempty_str(args['power_rundir'])
         self.formal_rundir = get_nonempty_str(args['formal_rundir'])
         self.timing_rundir = get_nonempty_str(args['timing_rundir'])
@@ -1393,6 +1509,9 @@ class CLIDriver:
                 HammerStartStopStep(step=start_step, inclusive=start_incl),
                 HammerStartStopStep(step=stop_step, inclusive=stop_incl)))
             driver.set_post_custom_sim_tool_hooks(HammerTool.make_start_stop_hooks(
+                HammerStartStopStep(step=start_step, inclusive=start_incl),
+                HammerStartStopStep(step=stop_step, inclusive=stop_incl)))
+            driver.set_post_custom_fsim_tool_hooks(HammerTool.make_start_stop_hooks(
                 HammerStartStopStep(step=start_step, inclusive=start_incl),
                 HammerStartStopStep(step=stop_step, inclusive=stop_incl)))
             driver.set_post_custom_power_tool_hooks(HammerTool.make_start_stop_hooks(
@@ -1455,6 +1574,13 @@ class CLIDriver:
                     base_project_config[0] = deeplist(driver.project_configs)
                     d.update_project_configs(deeplist(base_project_config[0]) + [config])
 
+                def fsim_pre_func(d: HammerDriver) -> None:
+                    self.lvs_rundir = os.path.join(d.obj_dir, "fsim-{module}".format(
+                        module=module))  # TODO(edwardw): fix this ugly os.path.join; it doesn't belong here.
+                    # TODO(edwardw): remove ugly hack to store stuff in parent context
+                    base_project_config[0] = deeplist(driver.project_configs)
+                    d.update_project_configs(deeplist(base_project_config[0]) + [config])
+
                 def power_pre_func(d: HammerDriver) -> None:
                     self.lvs_rundir = os.path.join(d.obj_dir, "power-{module}".format(
                         module=module))  # TODO(edwardw): fix this ugly os.path.join; it doesn't belong here.
@@ -1502,6 +1628,9 @@ class CLIDriver:
                 def sim_post_run(d: HammerDriver) -> None:
                     post_run(d, get_or_else(self.sim_rundir, ""))
 
+                def fsim_post_run(d: HammerDriver) -> None:
+                    post_run(d, get_or_else(self.sim_rundir, ""))
+
                 def power_post_run(d: HammerDriver) -> None:
                     post_run(d, get_or_else(self.power_rundir, ""))
 
@@ -1533,6 +1662,10 @@ class CLIDriver:
                                                     pre_action_func=sim_pre_func, post_load_func=None,
                                                     post_run_func=sim_post_run)
                 self.set_hierarchical_sim_action(module, sim_action)
+                fsim_action = self.create_fsim_action(self.get_extra_hierarchical_fsim_hooks(driver).get(module, []),
+                                                    pre_action_func=fsim_pre_func, post_load_func=None,
+                                                    post_run_func=fsim_post_run)
+                self.set_hierarchical_fsim_action(module, fsim_action)
                 power_action = self.create_power_action(self.get_extra_hierarchical_power_hooks(driver).get(module, []),
                                                     pre_action_func=power_pre_func, post_load_func=None,
                                                     post_run_func=power_post_run)
@@ -1681,6 +1814,8 @@ class CLIDriver:
                             help='(optional) Directory to store LVS results in')
         parser.add_argument("--sim_rundir", required=False, default="",
                             help='(optional) Directory to store simulation results in')
+        parser.add_argument("--fsim_rundir", required=False, default="",
+                            help='(optional) Directory to store fault simulation results in')
         parser.add_argument("--power_rundir", required=False, default="",
                             help='(optional) Directory to store power results in')
         parser.add_argument("--formal_rundir", required=False, default="",
