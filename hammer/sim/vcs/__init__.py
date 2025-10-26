@@ -97,11 +97,13 @@ class VCS(HammerSimTool, SynopsysTool):
 
         with open(self.access_tab_file_path, "w") as f:
             with open(abspath_seq_cells) as seq_file:
+                cells = {}
                 seq_json = json.load(seq_file)
                 assert isinstance(seq_json, List), "list of all sequential cells should be a json list of strings not {}".format(type(seq_json))
                 for cell in seq_json:
-                    cell_name = cell.split("[")[0] # To avoid multi bit regs
-                    f.write("acc=wn:{cell_name}\n".format(cell_name=cell_name))
+                    if cell not in cells:
+                        f.write("acc:=wn: {cell_name}.*\n".format(cell_name=cell))
+                        cells[cell] = True
 
         abspath_all_regs = os.path.join(os.getcwd(), self.all_regs)
         if not os.path.isfile(abspath_all_regs):
@@ -131,6 +133,10 @@ class VCS(HammerSimTool, SynopsysTool):
 
         # We are switching working directories and we still need to find paths
         abspath_input_files = list(map(lambda name: os.path.join(os.getcwd(), name), self.input_files))
+        for v in abspath_input_files:
+            if not os.path.exists(v):
+                self.logger.error("Cannot find %s" % v)
+                return False
 
         top_module = self.top_module
         compiler_cc_opts = self.get_setting("sim.inputs.compiler_cc_opts", [])
@@ -150,6 +156,14 @@ class VCS(HammerSimTool, SynopsysTool):
           "-debug_access+all" # since I-2014.03, req'd for FSDB dumping & force regs
         ]
 
+        use_gui = self.get_setting("sim.gui")
+        if use_gui:
+            verdi_home = self.get_setting("sim.vcs.verdi_home")
+            if not os.path.exists(verdi_home):
+                self.logger.error("VERDI home not found as expected at {0}".format(verdi_home))
+                return False
+            args.append("-kdb")
+        
         if self.get_setting("sim.vcs.fgp") and self.version() >= self.version_number("M-2017.03"):
             args.append("-fgp")
 
@@ -241,6 +255,10 @@ class VCS(HammerSimTool, SynopsysTool):
         force_regs_filename = self.force_regs_file_path
         tb_prefix = self.get_setting("sim.inputs.tb_dut")
         saif_mode = self.get_setting("sim.inputs.saif.mode")
+        saif_start_time: Optional[str] = None
+        saif_end_time: Optional[str] = None
+        saif_start_trigger_raw: Optional[str] = None
+        saif_end_trigger_raw: Optional[str] = None
         if saif_mode == "time":
             saif_start_time = self.get_setting("sim.inputs.saif.start_time")
             saif_end_time = self.get_setting("sim.inputs.saif.end_time")
@@ -260,8 +278,10 @@ class VCS(HammerSimTool, SynopsysTool):
         if self.level == FlowLevel.RTL and saif_mode != "none":
             find_regs_run_tcl = []
             if saif_mode != "none":
+                stime: Optional[TimeValue] = None
                 if saif_mode == "time":
-                    stime = TimeValue(saif_start_time[0])
+                    assert saif_start_time
+                    stime = TimeValue(saif_start_time)
                     find_regs_run_tcl.append("run {start}ns".format(start=stime.value_in_units("ns")))
                 elif saif_mode == "trigger_raw":
                     find_regs_run_tcl.append(saif_start_trigger_raw)
@@ -272,6 +292,8 @@ class VCS(HammerSimTool, SynopsysTool):
                 find_regs_run_tcl.append("power {dut}".format(dut=tb_prefix))
                 find_regs_run_tcl.append("config endofsim noexit")
                 if saif_mode == "time":
+                    assert saif_end_time
+                    assert stime
                     etime = TimeValue(saif_end_time)
                     find_regs_run_tcl.append("run {end}ns".format(end=(etime.value_in_units("ns") - stime.value_in_units("ns"))))
                 elif saif_mode == "trigger_raw":
@@ -289,8 +311,10 @@ class VCS(HammerSimTool, SynopsysTool):
             find_regs_run_tcl = []
             find_regs_run_tcl.append("source " + force_regs_filename)
             if saif_mode != "none":
+                stime: Optional[TimeValue] = None
                 if saif_mode == "time":
-                    stime = TimeValue(saif_start_time[0])
+                    assert saif_start_time
+                    stime = TimeValue(saif_start_time)
                     find_regs_run_tcl.append("run {start}ns".format(start=stime.value_in_units("ns")))
                 elif saif_mode == "trigger_raw":
                     find_regs_run_tcl.append(saif_start_trigger_raw)
@@ -302,6 +326,8 @@ class VCS(HammerSimTool, SynopsysTool):
                 find_regs_run_tcl.append("power {dut}".format(dut=tb_prefix))
                 find_regs_run_tcl.append("config endofsim noexit")
                 if saif_mode == "time":
+                    assert saif_end_time
+                    assert stime
                     etime = TimeValue(saif_end_time)
                     find_regs_run_tcl.append("run {end}ns".format(end=(etime.value_in_units("ns") - stime.value_in_units("ns"))))
                 elif saif_mode == "trigger_raw":
@@ -323,6 +349,15 @@ class VCS(HammerSimTool, SynopsysTool):
 
         # setup simulation arguments
         args = [ self.simulator_executable_path ]
+
+        use_gui = self.get_setting("sim.gui")
+        if use_gui:
+            verdi_home = self.get_setting("sim.vcs.verdi_home")
+            if not os.path.exists(verdi_home):
+                self.logger.error("VERDI home not found as expected at {0}".format(verdi_home))
+                return False
+            args.append("-gui")
+
         args.extend(exec_flags_prepend)
         if self.get_setting("sim.vcs.fgp") and self.version() >= self.version_number("M-2017.03"):
             # num_threads is in addition to a master thread, so reduce by 1
