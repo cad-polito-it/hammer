@@ -321,6 +321,22 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         HammerVLSILogging.enable_colour = False
         HammerVLSILogging.enable_tag = False
 
+        # ToDO: distinguish between Gate and RTL - saf, tdf, tf
+        args.append("-fsim")
+        args.append("-fsim=dut:" + self.campaign_tb_dut)
+
+        if self.level.is_gatelevel():
+            args.append("-fsim=suppress+cell")
+        elif self.level == FlowLevel.RTL:
+            args.append("-fsim=portfaults")
+
+        args.append("-suppress=TFIPC")
+        args.append("-fsim=class")
+        
+        args.append("+notimingcheck")
+        args.append("+vcs+fsdbon")
+        args.append("+define+fsdb")
+
         # Delete an old copy of the simulator if it exists
         if os.path.exists(self.simulator_executable_path):
             os.remove(self.simulator_executable_path)
@@ -330,15 +346,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             shutil.rmtree(os.path.join(self.run_dir, "csrc"))
         # Adding output elaboration dir
         args.append("-Mdir={}".format(self.run_dir))
-
-        args.append("-fsim")
-        args.append("-fsim=dut:" + self.campaign_tb_dut)
-        args.append("-fsim=suppress+cell")
-        args.append("-suppress=TFIPC")
-        args.append("-fsim=class")
-        args.append("+notimingcheck")
-        args.append("+vcs+fsdbon")
-        args.append("+define+fsdb")
 
         # Generate a simulator
         self.run_executable(args, cwd=self.run_dir)
@@ -483,7 +490,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
 
-        return True
+        return os.path.exists(self.campaign_tcl)
 
     def fgen(self) -> bool:
         #ToDo Check for correct fgen
@@ -514,7 +521,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
 
-        return True
+        return os.path.exists(os.path.join(self.run_dir, self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"))
 
     def fcc(self) -> bool:
         #ToDo Check for correct fault collapsing
@@ -537,13 +544,12 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         HammerVLSILogging.enable_colour = False
         HammerVLSILogging.enable_tag = False
 
-        # Generate a simulator
         self.run_executable(args, cwd=self.run_dir)
 
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
 
-        return True
+        return os.path.exists(os.path.join(self.run_dir, campaign_simv_daidir))
 
     def fcm(self) -> bool:
         #ToDo Check for completed fsim
@@ -571,6 +577,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
 
-        return True
+        # ToDo: change with non-static naming which can be changed in the fsim.tcl file using the fsim.mk
+        return os.path.exists(os.path.join(self.run_dir, "fsim_out.rpt"))
 
 tool = VC_ZOIX
