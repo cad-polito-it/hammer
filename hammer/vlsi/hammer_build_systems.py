@@ -34,6 +34,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         - drc
         - lvs
         - sim-rtl
+        - fsim-rtl
         - sim-syn
         - fsim-syn
         - sim-par
@@ -133,10 +134,12 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         ####################################################################################
         ## Steps for {mod}
         ####################################################################################
-        .PHONY: sim-rtl{suffix} syn{suffix} syn-to-sim{suffix} sim-syn{suffix} syn-to-fsim{suffix} fsim-syn{suffix} syn-to-par{suffix} par{suffix} par-to-sim{suffix} sim-par{suffix} sim-par-to-power{suffix} par-to-power{suffix} power-par{suffix} power-rtl{suffix} sim-rtl-to-power{suffix} sim-syn-to-power{suffix} syn-to-power{suffix} power-syn{suffix} par-to-drc{suffix} drc{suffix} par-to-lvs{suffix} lvs{suffix} syn-to-formal{suffix} formal-syn{suffix} par-to-formal{suffix} formal-par{suffix} syn-to-timing{suffix} timing-syn{suffix} par-to-timing{suffix} timing-par{suffix}
+        .PHONY: sim-rtl{suffix} fsim-rtl{suffix} syn{suffix} syn-to-sim{suffix} sim-syn{suffix} syn-to-fsim{suffix} fsim-syn{suffix} syn-to-par{suffix} par{suffix} par-to-sim{suffix} sim-par{suffix} sim-par-to-power{suffix} par-to-power{suffix} power-par{suffix} power-rtl{suffix} sim-rtl-to-power{suffix} sim-syn-to-power{suffix} syn-to-power{suffix} power-syn{suffix} par-to-drc{suffix} drc{suffix} par-to-lvs{suffix} lvs{suffix} syn-to-formal{suffix} formal-syn{suffix} par-to-formal{suffix} formal-par{suffix} syn-to-timing{suffix} timing-syn{suffix} par-to-timing{suffix} timing-par{suffix}
 
         sim-rtl{suffix}          : {sim_rtl_out}
         syn{suffix}              : {syn_out}
+
+        fsim-rtl{suffix}          : {fsim_rtl_out}
 
         syn-to-sim{suffix}       : {sim_syn_in}
         sim-syn{suffix}          : {sim_syn_out}
@@ -183,6 +186,9 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
 
         {sim_rtl_out}: {syn_deps} $(HAMMER_SIM_RTL_DEPENDENCIES)
         \t$(HAMMER_EXEC) {env_confs} {p_sim_rtl_in} $(HAMMER_EXTRA_ARGS) --sim_rundir {sim_rtl_run_dir} --obj_dir {obj_dir} sim{suffix}
+
+        {fsim_rtl_out}: {syn_deps} $(HAMMER_SIM_RTL_DEPENDENCIES)
+        \t$(HAMMER_EXEC) {env_confs} {p_fsim_rtl_in} $(HAMMER_EXTRA_ARGS) --fsim_rundir {fsim_rtl_run_dir} --obj_dir {obj_dir} fsim{suffix}
 
         {power_sim_rtl_in}: {sim_rtl_out}
         \t$(HAMMER_EXEC) {env_confs} -p {sim_rtl_out} $(HAMMER_EXTRA_ARGS) -o {power_sim_rtl_in} --obj_dir {obj_dir} sim-to-power
@@ -369,6 +375,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
 
         # TODO make this DRY
         sim_rtl_run_dir = os.path.join(obj_dir, "sim-rtl-rundir")
+        fsim_rtl_run_dir = os.path.join(obj_dir, "fsim-rtl-rundir")
         power_rtl_run_dir = os.path.join(obj_dir, "power-rtl-rundir")
         syn_run_dir = os.path.join(obj_dir, "syn-rundir")
         sim_syn_run_dir = os.path.join(obj_dir, "sim-syn-rundir")
@@ -385,7 +392,9 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         timing_par_run_dir = os.path.join(obj_dir, "timing-par-rundir")
 
         p_sim_rtl_in = proj_confs
+        p_fsim_rtl_in = proj_confs
         sim_rtl_out = os.path.join(sim_rtl_run_dir, "sim-output-full.json")
+        fsim_rtl_out = os.path.join(fsim_rtl_run_dir, "fsim-output-full.json")
         power_sim_rtl_in = os.path.join(obj_dir, "power-sim-rtl-input.json")
         #power_rtl_in = os.path.join(obj_dir, "power-rtl-input.json")
         power_rtl_out = os.path.join(power_rtl_run_dir, "power-output-full.json")
@@ -423,6 +432,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         output += make_text.format(suffix="", mod=top_module, env_confs=env_confs, obj_dir=obj_dir, syn_deps=syn_deps,
             par_to_syn=par_to_syn,
             p_sim_rtl_in=p_sim_rtl_in, sim_rtl_out=sim_rtl_out, sim_rtl_run_dir=sim_rtl_run_dir,
+            p_fsim_rtl_in=p_fsim_rtl_in, fsim_rtl_out=fsim_rtl_out, fsim_rtl_run_dir=fsim_rtl_run_dir,
             sim_syn_in=sim_syn_in, sim_syn_out=sim_syn_out, sim_syn_run_dir=sim_syn_run_dir,
             fsim_syn_in=fsim_syn_in, fsim_syn_out=fsim_syn_out, fsim_syn_run_dir=fsim_syn_run_dir,
             power_sim_rtl_in=power_sim_rtl_in, power_rtl_out=power_rtl_out, power_rtl_run_dir=power_rtl_run_dir,
@@ -442,6 +452,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
 
             # TODO make this DRY
             sim_rtl_run_dir = os.path.join(obj_dir, "sim-rtl-" + node)
+            fsim_rtl_run_dir = os.path.join(obj_dir, "fsim-rtl-" + node)
             power_rtl_run_dir = os.path.join(obj_dir, "power-rtl-" + node)
             syn_run_dir = os.path.join(obj_dir, "syn-" + node)
             sim_syn_run_dir = os.path.join(obj_dir, "sim-syn-" + node)
@@ -458,7 +469,9 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
             timing_par_run_dir = os.path.join(obj_dir, "timing-par-" + node)
 
             p_sim_rtl_in = proj_confs
+            p_fsim_rtl_in = proj_confs
             sim_rtl_out = os.path.join(sim_rtl_run_dir, "sim-output-full.json")
+            fsim_rtl_out = os.path.join(fsim_rtl_run_dir, "sim-output-full.json")
             power_sim_rtl_in = os.path.join(obj_dir, "power-sim-rtl-{}-input.json".format(node))
             #power_rtl_in = os.path.join(obj_dir, "power-rtl-{}-input.json".format(node))
             power_rtl_out = os.path.join(power_rtl_run_dir, "power-output-full.json")
@@ -516,6 +529,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
             output += make_text.format(suffix="-"+node, mod=node, env_confs=env_confs, obj_dir=obj_dir, syn_deps=syn_deps,
                 par_to_syn=par_to_syn,
                 p_sim_rtl_in=p_sim_rtl_in, sim_rtl_out=sim_rtl_out, sim_rtl_run_dir=sim_rtl_run_dir,
+                p_fsim_rtl_in=p_fsim_rtl_in, fsim_rtl_out=fsim_rtl_out, fsim_rtl_run_dir=fsim_rtl_run_dir,
                 power_sim_rtl_in=power_sim_rtl_in, power_rtl_out=power_rtl_out, power_rtl_run_dir=power_rtl_run_dir,
                 sim_syn_in=sim_syn_in, sim_syn_out=sim_syn_out, sim_syn_run_dir=sim_syn_run_dir,
                 fsim_syn_in=fsim_syn_in, fsim_syn_out=fsim_syn_out, fsim_syn_run_dir=fsim_syn_run_dir,
