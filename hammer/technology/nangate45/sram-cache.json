@@ -1,6 +1,6 @@
 [{
   "type" : "sram",
-  "name" : "fakeram45_1024x32",
+  "name" : "fakeram45_1RW_1024x32",
   "depth" : "1024",
   "width" : 32,
   "family" : "1RW",
@@ -13,10 +13,10 @@
         "address port polarity": "active high",
         "chip enable port name": "RW0_en",
         "chip enable port polarity": "active high",
-        "output port name": "RW0_rdata",
-        "output port polarity": "active high",
         "clock port name": "RW0_clk",
         "clock port polarity": "positive edge",
+        "output port name": "RW0_rdata",
+        "output port polarity": "active high",
         "input port name": "RW0_wdata",
         "input port polarity": "active high",
         "write enable port name": "RW0_wmode",
@@ -28,7 +28,7 @@
     ]
 },{
   "type" : "sram",
-  "name" : "fakeram45_64x32",
+  "name" : "fakeram45_1RW_64x32",
   "depth" : "64",
   "width" : 32,
   "family" : "1RW",
@@ -41,10 +41,10 @@
         "address port polarity": "active high",
         "chip enable port name": "RW0_en",
         "chip enable port polarity": "active high",
-        "output port name": "RW0_rdata",
-        "output port polarity": "active high",
         "clock port name": "RW0_clk",
         "clock port polarity": "positive edge",
+        "output port name": "RW0_rdata",
+        "output port polarity": "active high",
         "input port name": "RW0_wdata",
         "input port polarity": "active high",
         "write enable port name": "RW0_wmode",
@@ -54,4 +54,70 @@
         "mask granularity" : 32
       }
     ]
-}]
+},
+  
+{
+  "type" : "sram",
+  "name" : "fakeram45_1R1W_64x32",
+  "depth" : "64",
+  "width" : 32,
+  "family" : "1R1W",
+  "vt" : "SRAM",
+ "mask" : "false",
+  "ports": [ {
+    "address port name" : "R0_addr",
+    "address port polarity" : "active high",
+    "read enable port name" : "R0_en",
+    "read enable port polarity" : "active high",
+    "clock port name" : "R0_clk",
+    "clock port polarity" : "positive edge",
+    "output port name" : "R0_data",
+    "output port polarity" : "active high"
+  }, 
+  {
+    "address port name" : "W0_addr",
+    "address port polarity" : "active high",
+    "write enable port name" : "W0_en",
+    "write enable port polarity" : "active high",
+    "clock port name" : "W0_clk",
+    "clock port polarity" : "positive edge",
+    "input port name" : "W0_data",
+    "input port polarity" : "active high"
+  } 
+]
+},
+
+
+{
+  "type" : "sram",
+  "name" : "fakeram45_2RmW_64x32",
+  "depth" : "64",
+  "width" : 32,
+  "family" : "2RmW",
+  "vt" : "SRAM",
+  "mask"  : "true",
+  "ports": [ {
+    "address port name" : "R0_addr",
+    "address port polarity" : "active high",
+    "read enable port name" : "R0_en",
+    "read enable port polarity" : "active high",
+    "clock port name" : "R0_clk",
+    "clock port polarity" : "positive edge",
+    "output port name" : "R0_data",
+    "output port polarity" : "active high"
+  },{
+    "address port name" : "W0_addr",
+    "address port polarity" : "active high",
+    "write enable port name" : "W0_en",
+    "write enable port polarity" : "active high",
+    "clock port name" : "W0_clk",
+    "clock port polarity" : "positive edge",
+    "input port name" : "W0_data",
+    "input port polarity" : "active high",
+    "mask port name" : "W0_wmask",
+    "mask port polarity" : "active high",
+    "mask granularity" : 32
+  } 
+]
+}
+]
