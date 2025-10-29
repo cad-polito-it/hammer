@@ -33,6 +33,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         modified_lines = []
         args_found = False
         exec_found = False
+        reports_found = 0
 
         try:
             # Read all lines from the file into memory
@@ -53,6 +54,11 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 # This captures the prefix (group 1), the command (group 2),
                 # and any trailing whitespace or line continuation '\' (group 3)
                 exec_match = re.search(r'(\s*-exec\s+)(.*?)(\s*\\?\s*)$', line.rstrip())
+                
+                # 3. Check for -report lines
+                # Regex: (\s-report\s+)(fsim_out(?:_hier)?\.rpt)
+                # This captures the flag (group 1) and the specific filenames (group 2)
+                report_match = re.search(r'(\s-report\s+)(.*?(fsim_out(?:_hier)?\.rpt))', line)
 
                 if match:
                     args_found = True
@@ -83,6 +89,30 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                     # Rebuild the line, adding the newline back
                     new_line = f'{prefix}{new_exec}{trailing_chars}\n'
                     modified_lines.append(new_line)
+                elif report_match:
+                    # --- Handle -report ---
+                    reports_found += 1
+                    prefix = line[:report_match.start(2)] 
+                
+                    # Get just the base filename, e.g., 'fsim_out.rpt'
+                    report_filename = report_match.group(3) 
+                    
+                    suffix = line[report_match.end(2):]
+
+                    core = self.get_setting("fsim.inputs.core")
+
+                    new_report_name = f"{core}_{self.fault_type}_{report_filename}"
+                    
+                    # Get text after the filename, e.g., ' -overwrite ...\n'
+                    suffix = line[report_match.end(2):] 
+                    
+                    # Build the new path
+                    new_report_path = os.path.join(self.output_folder, new_report_name)
+                    new_report_path = new_report_path.replace(os.path.sep, '/')
+                    
+                    # Rebuild the line
+                    new_line = f'{prefix}{new_report_path}{suffix}'
+                    modified_lines.append(new_line)
                 else:
                     # If it's not the line we're looking for, add it unchanged
                     modified_lines.append(line)
@@ -93,6 +123,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             if not exec_found:
                 print(f"Warning: '-exec' line not found. File not modified for exec.")
                 return False
+            if not reports_found:
+                print(f"Warning: 'fsim_out.rpt' or 'fsim_out_hier.rpt' not found.")
 
             # Write the modified lines back to the file
             with open(file_path, 'w') as f:
@@ -118,6 +150,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         self.output_level = self.get_setting("fsim.inputs.level")
         self.campaign_tb_dut = self.get_setting("fsim.inputs.campaign_tb_dut")
         self.campaign_tcl = self.get_setting("fsim.inputs.campaign_tcl")
+        self.output_folder = self.get_setting("fsim.inputs.output_folder")
         self.fault_type = self.get_setting("fsim.inputs.fault_type")
         self.sff_file = self.get_setting("fsim.inputs.sff_file")
         if self.get_setting("fsim.inputs.saif.mode") != "none":
@@ -252,6 +285,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         vcs_bin,
         "-kdb",
         "-full64",
+        "-hsopt=gates",
         "-lca", # enable advanced features access, add'l no-cost licenses may be req'd depending on feature
         "-debug_access+all" # since I-2014.03, req'd for FSDB dumping & force regs
         ]

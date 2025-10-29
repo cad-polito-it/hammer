@@ -955,9 +955,11 @@ fsim.inputs:
   campaign_tb_dut: ""
   strobe_file_name: ""
   campaign_tcl: ""
+  output_folder: ""
   sff_file: ""
   campaign_simv_daidir: ""
   fault_type: saf
+  core: ""
 
 fsim.submit:
   command: "${vlsi.submit.command}"
