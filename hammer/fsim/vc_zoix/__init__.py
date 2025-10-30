@@ -33,6 +33,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         modified_lines = []
         args_found = False
         exec_found = False
+        created_report_dir = False
         reports_found = 0
 
         try:
@@ -104,18 +105,36 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                     # Split the basename into name and extension ("program_name", ".riscv")
                     benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
 
-                    new_report_name = f"{core}_{self.fault_type}_{benchmark_name}_{report_filename}"
+                    # --- Build new directory structure ---
+                    if not created_report_dir: # Only run this once
+                        # 1. Create the new directory path string
+                        # e.g., "my/results/MyCoreConfig/_sa1_/fft"
+                        self.report_folder = os.path.join(self.output_folder,
+                                                    core, 
+                                                    self.fault_type, 
+                                                    benchmark_name)
+                        
+                        # 2. Create the directories if they don't exist
+                        try:
+                            os.makedirs(self.report_folder, exist_ok=True)
+                            print(f"Ensured directory exists: {self.report_folder}")
+                            created_report_dir = self.report_folder # Cache path
+                        except OSError as e:
+                            print(f"Error creating directory {self.report_folder}: {e}")
+                            modified_lines.append(line) # Add original line and skip
+                            continue
                     
-                    # Get text after the filename, e.g., ' -overwrite ...\n'
-                    suffix = line[report_match.end(2):] 
+                    # 3. Create the new full file path
+                    # e.g., "my/results/MyCoreConfig/_sa1_/fft/fsim_out.rpt"
+                    new_report_path = os.path.join(created_report_dir, report_filename)
+                    # --- End new logic ---
                     
-                    # Build the new path
-                    new_report_path = os.path.join(self.output_folder, new_report_name)
                     new_report_path = new_report_path.replace(os.path.sep, '/')
                     
                     # Rebuild the line
                     new_line = f'{prefix}{new_report_path}{suffix}'
                     modified_lines.append(new_line)
+                    
                 else:
                     # If it's not the line we're looking for, add it unchanged
                     modified_lines.append(line)
@@ -157,6 +176,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         self.fault_type = self.get_setting("fsim.inputs.fault_type")
         self.is_fgen = self.get_setting("fsim.inputs.is_fgen")
         self.sff_file = self.get_setting("fsim.inputs.sff_file")
+        self.report_folder = ""
         if self.get_setting("fsim.inputs.saif.mode") != "none":
             if not self.benchmarks:
                 self.output_saifs.append(os.path.join(self.run_dir, "ucli.saif"))
@@ -620,6 +640,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         HammerVLSILogging.enable_tag = True
 
         # ToDo: change with non-static naming which can be changed in the fsim.tcl file using the fsim.mk
-        return os.path.exists(os.path.join(self.run_dir, "fsim_out.rpt"))
+        return os.path.exists(os.path.join(self.report_folder, "fsim_out.rpt"))
 
 tool = VC_ZOIX
