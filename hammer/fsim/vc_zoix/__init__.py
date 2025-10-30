@@ -152,6 +152,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         self.campaign_tcl = self.get_setting("fsim.inputs.campaign_tcl")
         self.output_folder = self.get_setting("fsim.inputs.output_folder")
         self.fault_type = self.get_setting("fsim.inputs.fault_type")
+        self.is_fgen = self.get_setting("fsim.inputs.is_fgen")
         self.sff_file = self.get_setting("fsim.inputs.sff_file")
         if self.get_setting("fsim.inputs.saif.mode") != "none":
             if not self.benchmarks:
@@ -527,35 +528,39 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         return os.path.exists(self.campaign_tcl)
 
     def fgen(self) -> bool:
-        #ToDo Check for correct fgen
-        fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
-        if not os.path.isfile(fcc_bin):
-            self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
-            return False
-        campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
+        if (self.is_fgen == True):
+            fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
+            if not os.path.isfile(fcc_bin):
+                self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
+                return False
+            campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
 
-        # Build args
-        args = [
-        fcc_bin,
-        "-full64",
-        "-daidir " + campaign_simv_daidir,
-        "-sff " + self.sff_file,
-        "-report " + self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
-        "-campaign " + self.campaign_tb_dut.split(".")[-1],
-        "-collapse off",
-        "-overwrite"
-        ]
+            # Build args
+            args = [
+            fcc_bin,
+            "-full64",
+            "-daidir " + campaign_simv_daidir,
+            "-sff " + self.sff_file,
+            "-report " + self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
+            "-campaign " + self.campaign_tb_dut.split(".")[-1],
+            "-collapse off",
+            "-overwrite"
+            ]
 
-        HammerVLSILogging.enable_colour = False
-        HammerVLSILogging.enable_tag = False
+            HammerVLSILogging.enable_colour = False
+            HammerVLSILogging.enable_tag = False
 
-        # Generate a simulator
-        self.run_executable(args, cwd=self.run_dir)
+            # Generate a simulator
+            self.run_executable(args, cwd=self.run_dir)
 
-        HammerVLSILogging.enable_colour = True
-        HammerVLSILogging.enable_tag = True
+            HammerVLSILogging.enable_colour = True
+            HammerVLSILogging.enable_tag = True
 
-        return os.path.exists(os.path.join(self.run_dir, self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"))
+            return os.path.exists(os.path.join(self.run_dir, self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"))
+        else: 
+            shutil.copyfile(self.sff_file, os.path.join(self.run_dir, self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"))
+            return os.path.exists(os.path.join(self.run_dir, self.fault_type + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"))
+
 
     def fcc(self) -> bool:
         #ToDo Check for correct fault collapsing

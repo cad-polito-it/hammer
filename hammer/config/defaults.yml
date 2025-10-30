@@ -957,6 +957,7 @@ fsim.inputs:
   campaign_tcl: ""
   output_folder: ""
   sff_file: ""
+  is_fgen: true
   campaign_simv_daidir: ""
   fault_type: saf
   core: ""
