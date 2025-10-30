@@ -101,7 +101,10 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
 
                     core = self.get_setting("fsim.inputs.core")
 
-                    new_report_name = f"{core}_{self.fault_type}_{report_filename}"
+                    # Split the basename into name and extension ("program_name", ".riscv")
+                    benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
+
+                    new_report_name = f"{core}_{self.fault_type}_{benchmark_name}_{report_filename}"
                     
                     # Get text after the filename, e.g., ' -overwrite ...\n'
                     suffix = line[report_match.end(2):] 
