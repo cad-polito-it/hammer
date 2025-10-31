@@ -209,6 +209,26 @@ def main(args) -> int:
                                   InterfaceVar("output_level", "str", "simulation flow level")
                               ]
                               )
+
+    HammerATPGTool = Interface(module="HammerATPGTool",
+                            filename="vlsi/hammer_vlsi_impl.py",
+                            inputs=[
+                                InterfaceVar("top_module", "str", "top design module"),
+                                InterfaceVar("input_files", "List[str]", "paths to input verilog files"),
+                                InterfaceVar("all_regs", "str", "path to list of all registers in the design with output pin"),
+                                InterfaceVar("seq_cells", "str", "path to collection of all sequential standard cells in design"),
+                                InterfaceVar("sdf_file", "Optional[str]", "optional SDF file needed for timing annotated gate level sims")
+                            ],
+                            outputs=[
+                                InterfaceVar("output_waveforms", "List[str]", "paths to output waveforms"),
+                                InterfaceVar("output_saifs", "List[str]", "paths to output activity files"),
+                                InterfaceVar("output_top_module", "str", "top RTL module"),
+                                InterfaceVar("output_tb_name", "str", "ATPG testbench name"),
+                                InterfaceVar("output_tb_dut", "str", "ATPG DUT instance name"),
+                                InterfaceVar("output_level", "str", "ATPG flow level")
+                            ]
+                            )
+
     HammerPowerTool = Interface(module="HammerPowerTool",
                                 filename="vlsi/hammer_vlsi_impl.py",
                                 inputs=[
@@ -276,6 +296,7 @@ def main(args) -> int:
     generate_interface(HammerLVSTool)
     generate_interface(HammerSRAMGeneratorTool)
     generate_interface(HammerSimTool)
+    generate_interface(HammerATPGTool)
     generate_interface(HammerPowerTool)
     generate_interface(HammerFormalTool)
     generate_interface(HammerTimingTool)

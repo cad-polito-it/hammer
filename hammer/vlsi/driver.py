@@ -18,7 +18,7 @@ import hammer.tech as hammer_tech
 from hammer.tech import MacroSize
 from .hammer_tool import HammerTool
 from .hooks import HammerToolHookAction
-from .hammer_vlsi_impl import HammerVLSISettings, HammerPlaceAndRouteTool, HammerSynthesisTool, \
+from .hammer_vlsi_impl import HammerVLSISettings, HammerPlaceAndRouteTool, HammerSynthesisTool, HammerATPGTool, \
     HammerSignoffTool, HammerDRCTool, HammerLVSTool, HammerSRAMGeneratorTool, HammerPCBDeliverableTool, HammerSimTool, HammerPowerTool, HammerFormalTool, HammerTimingTool, \
     HierarchicalMode, load_tool, PlacementConstraint, SRAMParameters, ILMStruct, FlowLevel
 from hammer.logging import HammerVLSIFileLogger, HammerVLSILogging, HammerVLSILoggingContext
@@ -115,6 +115,7 @@ class HammerDriver:
         self.lvs_tool = None  # type: Optional[HammerLVSTool]
         self.sram_generator_tool = None  # type: Optional[HammerSRAMGeneratorTool]
         self.sim_tool = None  # type: Optional[HammerSimTool]
+        self.atpg_tool = None
         self.power_tool = None # type: Optional[HammerPowerTool]
         self.formal_tool = None # type: Optional[HammerFormalTool]
         self.timing_tool = None # type: Optional[HammerTimingTool]
@@ -126,6 +127,7 @@ class HammerDriver:
         self.post_custom_lvs_tool_hooks = []  # type: List[HammerToolHookAction]
         self.post_custom_sram_generator_tool_hooks = []  # type: List[HammerToolHookAction]
         self.post_custom_sim_tool_hooks = []  # type: List[HammerToolHookAction]
+        self.post_custom_atpg_tool_hooks = []
         self.post_custom_power_tool_hooks = [] # type: List[HammerToolHookAction]
         self.post_custom_formal_tool_hooks = [] # type: List[HammerToolHookAction]
         self.post_custom_timing_tool_hooks = [] # type: List[HammerToolHookAction]
@@ -582,6 +584,70 @@ class HammerDriver:
             assert isinstance(sim_tool, HammerSimTool)
             return self.set_up_sim_tool(sim_tool, name, run_dir)
 
+    def set_up_atpg_tool(self, atpg_tool: HammerATPGTool,
+                         name: str, run_dir: str = "") -> bool:
+        """
+        Set up and store the given ATPG tool instance for use in this driver.
+        :param atpg_tool: Tool instance.
+        :param name: Short name (e.g. "tmax") of the tool instance. Typically
+                     obtained from the database.
+        :param run_dir: Directory to use for the tool run_dir. Defaults to the run_dir passed in the HammerDriver
+                        constructor.
+        :return: True if setup was successful.
+        """
+        if self.tech is None:
+            self.log.error("Must load technology before loading ATPG tool")
+            return False
+
+        if run_dir == "":
+            run_dir = os.path.join(self.obj_dir, "atpg-rundir")
+
+        atpg_tool.name = name
+        atpg_tool.logger = self.log.context("atpg")
+        atpg_tool.set_database(self.database)
+        atpg_tool.run_dir = run_dir
+        atpg_tool.technology = self.tech
+        atpg_tool.hierarchical_mode = HierarchicalMode.from_str(
+            self.database.get_setting("vlsi.inputs.hierarchical.mode"))
+        atpg_tool.submit_command = HammerSubmitCommand.get("atpg", self.database)
+
+        # Inputs commonly needed
+        atpg_tool.input_files = self.database.get_setting("atpg.inputs.input_files", nullvalue=[])
+        atpg_tool.top_module = self.database.get_setting("atpg.inputs.top_module", nullvalue="")
+        atpg_tool.output_level = self.database.get_setting("atpg.inputs.level", nullvalue="")
+
+        missing_inputs = False
+        if atpg_tool.top_module == "":
+            self.log.error("Top module not specified for ATPG")
+            missing_inputs = True
+        if len(atpg_tool.input_files) == 0:
+            self.log.error("No input files specified for ATPG")
+            missing_inputs = True
+        if missing_inputs:
+            return False
+
+        self.atpg_tool = atpg_tool
+        self.tool_configs["atpg"], self.tool_config_types["atpg"] = atpg_tool.get_config()
+        self.update_tool_configs()
+        return True
+
+    def load_atpg_tool(self, run_dir: str = "") -> bool:
+        """
+        Load the ATPG tool based on the given database.
+
+        :param run_dir: Directory to use for the tool run_dir. Defaults to the run_dir passed in the HammerDriver
+                        constructor.
+        :return: True if successful, false otherwise
+        """
+        config_result = self.instantiate_tool_from_config("atpg", HammerATPGTool)
+        if config_result is None:
+            return False
+        else:
+            (atpg_tool, name) = config_result
+            assert isinstance(atpg_tool, HammerATPGTool)
+            return self.set_up_atpg_tool(atpg_tool, name, run_dir)
+
+
     def set_up_power_tool(self, power_tool: HammerPowerTool,
                               name: str, run_dir: str = "") -> bool:
         """
@@ -879,6 +945,15 @@ class HammerDriver:
         """
         self.post_custom_sim_tool_hooks = list(hooks)
 
+    def set_post_custom_atpg_tool_hooks(self, hooks: List[HammerToolHookAction]) -> None:
+        """
+        Set the extra list of hooks used for control flow (resume/pause) in run_atpg.
+        They will run after main/hook_actions.
+
+        :param hooks: Hooks to run
+        """
+        self.post_custom_atpg_tool_hooks = list(hooks)
+
     def set_post_custom_power_tool_hooks(self, hooks: List[HammerToolHookAction]) -> None:
         """
         Set the extra list of hooks used for control flow (resume/pause) in run_power.
@@ -954,6 +1029,33 @@ class HammerDriver:
             return False, {}
 
         return run_succeeded, output_config
+
+    @staticmethod
+    def synthesis_output_to_atpg_input(output_dict: dict) -> Optional[dict]:
+        """
+        Generate the appropriate inputs for running ATPG from the
+        outputs of synthesis run.
+        Does not merge the results with any project dictionaries.
+        :param output_dict: Dict containing synthesis.outputs.*
+        :return: atpg.inputs.* settings generated from output_dict,
+                 or None if output_dict was invalid
+        """
+        try:
+            output_files = deeplist(output_dict["synthesis.outputs.output_files"])
+            result = {
+                "atpg.inputs.input_files": output_files,
+                "atpg.inputs.input_files_meta": "append",
+                "atpg.inputs.top_module": output_dict["synthesis.inputs.top_module"],
+                "atpg.inputs.all_regs": output_dict.get("synthesis.outputs.all_regs", None),
+                "atpg.inputs.seq_cells": output_dict.get("synthesis.outputs.seq_cells", None),
+                "atpg.inputs.post_synth_sdc": output_dict.get("synthesis.outputs.sdc", None),
+                "atpg.inputs.level": 'syn',
+                "vlsi.builtins.is_complete": False
+            }  # type: Dict[str, Any]
+            return result
+        except KeyError:
+            # KeyError means that the given dictionary is missing output keys.
+            return None
 
     @staticmethod
     def synthesis_output_to_par_input(output_dict: dict) -> Optional[dict]:
@@ -1475,6 +1577,49 @@ class HammerDriver:
                     "it did not mark its output dictionary as output-only "
                     "or did not call super().export_config_outputs(). "
                     "Subsequent commands might not behave correctly.")
+                output_config["vlsi.builtins.is_complete"] = False
+        except ValueError as e:
+            self.log.fatal(e.args[0])
+            return False, {}
+
+        return run_succeeded, output_config
+
+    def run_atpg(self, hook_actions: Optional[List[HammerToolHookAction]] = None, force_override: bool = False) -> \
+            Tuple[bool, dict]:
+        """
+        Run ATPG based on the given database.
+        The output config dict returned does NOT have a copy of the input config settings.
+
+        :param hook_actions: List of hook actions, or leave as None to use the hooks sets in set_atpg_hooks.
+                             Hooks from set_atpg_hooks, if present, will be appended afterwards.
+        :param force_override: Set to true to overwrite instead of append.
+        :return: Tuple of (success, output config dict)
+        """
+        if self.atpg_tool is None:
+            self.log.error("Must load ATPG tool before calling run_atpg")
+            return False, {}
+
+        self.log.info("Starting ATPG with tool '%s'" % (self.atpg_tool.name))
+        if hook_actions is None:
+            hooks_to_use = self.post_custom_atpg_tool_hooks
+        else:
+            if force_override:
+                hooks_to_use = hook_actions
+            else:
+                hooks_to_use = hook_actions + self.post_custom_atpg_tool_hooks
+
+        run_succeeded = self.atpg_tool.run(hooks_to_use)
+        if not run_succeeded:
+            self.log.error("ATPG tool %s failed! Please check its output." % self.atpg_tool.name)
+
+        # Record output from the ATPG tool into the JSON output.
+        output_config = {}  # type: Dict[str, Any]
+        try:
+            output_config = deepdict(self.atpg_tool.export_config_outputs())
+            if output_config.get("vlsi.builtins.is_complete", True):
+                self.log.error(
+                    "The ATPG plugin is mis-written; it did not mark its output dictionary as output-only "
+                    "or did not call super().export_config_outputs(). Subsequent commands might not behave correctly.")
                 output_config["vlsi.builtins.is_complete"] = False
         except ValueError as e:
             self.log.fatal(e.args[0])
