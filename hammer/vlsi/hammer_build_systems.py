@@ -480,7 +480,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
             p_sim_rtl_in = proj_confs
             p_fsim_rtl_in = proj_confs
             sim_rtl_out = os.path.join(sim_rtl_run_dir, "sim-output-full.json")
-            fsim_rtl_out = os.path.join(fsim_rtl_run_dir, "sim-output-full.json")
+            fsim_rtl_out = os.path.join(fsim_rtl_run_dir, "fsim-output-full.json")
             power_sim_rtl_in = os.path.join(obj_dir, "power-sim-rtl-{}-input.json".format(node))
             #power_rtl_in = os.path.join(obj_dir, "power-rtl-{}-input.json".format(node))
             power_rtl_out = os.path.join(power_rtl_run_dir, "power-output-full.json")

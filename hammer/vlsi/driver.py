@@ -115,7 +115,7 @@ class HammerDriver:
         self.lvs_tool = None  # type: Optional[HammerLVSTool]
         self.sram_generator_tool = None  # type: Optional[HammerSRAMGeneratorTool]
         self.sim_tool = None  # type: Optional[HammerSimTool]
-        self.fsim_tool = None  # type: Optional[HammerSimTool]
+        self.fsim_tool = None  # type: Optional[HammerFaultSimTool]
         self.power_tool = None # type: Optional[HammerPowerTool]
         self.formal_tool = None # type: Optional[HammerFormalTool]
         self.timing_tool = None # type: Optional[HammerTimingTool]
@@ -616,7 +616,7 @@ class HammerDriver:
         # Special case: if non-leaf hierarchical and gate-level, append ilm fsim netlists
         if fsim_tool.hierarchical_mode.is_nonleaf_hierarchical() and fsim_tool.level.is_gatelevel():
             for ilm in fsim_tool.get_input_ilms():
-                if isinstance(ilm.sim_netlist, str):
+                if isinstance(ilm.fsim_netlist, str):
                     fsim_tool.input_files.append(ilm.fsim_netlist)
         fsim_tool.input_files = self.database.get_setting("fsim.inputs.input_files")
         fsim_tool.submit_command = HammerSubmitCommand.get("fsim", self.database)

@@ -33,7 +33,7 @@ vlsi.core:
   # Sim tool to use.
   sim_tool: "hammer.sim.mocksim"
 
-  # Sim tool to use.
+  # Fault Sim tool to use.
   fsim_tool: "hammer.fsim.mockfsim"
 
   # Power analysis tool to use.

@@ -64,7 +64,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 if match:
                     args_found = True
                     prefix = match.group(1)      # e.g., '    -args "'
-                    old_args = match.group(2)    # e.g., ''
                     
                     # Get any text that came *after* the closing quote (like a comment or newline)
                     trailing_chars = line[match.end():]
@@ -78,11 +77,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                     # --- Handle -exec ---
                     exec_found = True
                     prefix = exec_match.group(1)        # '    -exec '
-                    old_exec = exec_match.group(2)      # './simv'
                     trailing_chars = exec_match.group(3) # ' \'
-
-                    # Clean the old path (e.g., remove './' prefix)
-                    clean_old_exec = old_exec.lstrip('./')
                     
                     # Standardize on forward slashes for tool compatibility
                     new_exec = self.simulator_executable_path

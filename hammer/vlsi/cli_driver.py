@@ -1629,7 +1629,7 @@ class CLIDriver:
                     post_run(d, get_or_else(self.sim_rundir, ""))
 
                 def fsim_post_run(d: HammerDriver) -> None:
-                    post_run(d, get_or_else(self.sim_rundir, ""))
+                    post_run(d, get_or_else(self.fsim_rundir, ""))
 
                 def power_post_run(d: HammerDriver) -> None:
                     post_run(d, get_or_else(self.power_rundir, ""))

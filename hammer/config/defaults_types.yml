@@ -30,7 +30,7 @@ vlsi.core:
   # Sim tool to use.
   sim_tool: str
 
-  # Sim tool to use.
+  # Fault Sim tool to use.
   fsim_tool: str
 
   # Power analysis tool to use.

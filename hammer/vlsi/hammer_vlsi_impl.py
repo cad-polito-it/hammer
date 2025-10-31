@@ -1900,7 +1900,7 @@ class HammerFaultSimTool(HammerTool):
             raise TypeError("output_level must be a str")
         self.attr_setter("_output_level", value)
 
-    ### END Generated interface HammerSimTool ###
+    ### END Generated interface HammerFaultSimTool ###
 
 
 class HammerPowerTool(HammerTool):

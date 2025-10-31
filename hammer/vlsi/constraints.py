@@ -44,7 +44,7 @@ class ILMStruct(NamedTuple('ILMStruct', [
         if self.sim_netlist is not None:
             output.update({"sim_netlist": self.sim_netlist})
         if self.fsim_netlist is not None:
-            output.update({"fsim_netlist": self.sim_netlist})
+            output.update({"fsim_netlist": self.fsim_netlist})
         return output
 
     @staticmethod
