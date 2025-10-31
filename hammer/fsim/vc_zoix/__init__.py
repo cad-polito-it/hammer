@@ -169,7 +169,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         self.campaign_tcl = self.get_setting("fsim.inputs.campaign_tcl")
         self.output_folder = self.get_setting("fsim.inputs.output_folder")
         self.fault_type = self.get_setting("fsim.inputs.fault_type")
-        self.is_fgen = self.get_setting("fsim.inputs.is_fgen")
+        self.is_fgen = int(self.get_setting("fsim.inputs.is_fgen"))
         self.sff_file = self.get_setting("fsim.inputs.sff_file")
         self.report_folder = ""
         if self.get_setting("fsim.inputs.saif.mode") != "none":
@@ -546,7 +546,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         return os.path.exists(self.campaign_tcl)
 
     def fgen(self) -> bool:
-        if (self.is_fgen == True):
+        if (self.is_fgen == 1):
             fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
             if not os.path.isfile(fcc_bin):
                 self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
