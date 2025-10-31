@@ -1,0 +1,10 @@
+# Default settings for simulation using TestMax
+atpg.testmax:
+
+  # Location of the binary.
+  testmax_bin: "${synopsys.synopsys_home}/tmax/${atpg.testmax.version}/bin/tmax"
+  testmax_bin_meta: lazysubst
+
+  # TestMax version to use.
+  # Used to locate the binary - e.g. the 'M-2017.03' in ${synopsys.synopsys_home}/vcs/M-2017.03/bin/vcs
+  version: "P-2019.06-SP2-5"

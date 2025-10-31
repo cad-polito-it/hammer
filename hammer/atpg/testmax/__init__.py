@@ -1,0 +1,235 @@
+#  hammer-vlsi for Synopsys TestMax
+#
+#  See LICENSE for license details.
+
+from hammer.vlsi import HammerATPGTool, HammerToolStep, HammerLSFSubmitCommand, HammerLSFSettings
+from hammer.common.synopsys import SynopsysTool
+from hammer.logging import HammerVLSILogging
+
+from typing import Dict, List, Optional, Callable, Tuple
+
+from hammer.vlsi import FlowLevel, TimeValue
+
+import hammer.utils as hammer_utils
+import hammer.tech as hammer_tech
+from hammer.tech import HammerTechnologyUtils
+
+import os
+import re
+import shutil
+import json
+from multiprocessing import Process
+
+class TESTMAX(HammerATPGTool, SynopsysTool):
+
+    def tool_config_prefix(self) -> str:
+        return "atpg.testmax"
+
+    def fill_outputs(self) -> bool:
+        print(self.input_files)
+        self.output_waveforms = []
+        self.output_saifs = []
+        self.output_top_module = self.top_module
+        self.output_tb_name = self.get_setting("atpg.inputs.tb_name")
+        self.output_tb_dut = self.get_setting("atpg.inputs.tb_dut")
+        self.output_level = self.get_setting("atpg.inputs.level")
+        # Path where resulting fault list (from fault simulation) will be written.
+        # self.output_fault_list = self.get_setting("atpg.testmax.output_fault_list")
+        # Paths to pattern files produced by ATPG (downstream consumers expect this)
+        self.output_patterns = []
+        self.create_patterns = self.get_setting('atpg.inputs.create_patterns')
+        self.fault_type = self.get_setting('atpg.inputs.fault_type')
+        self.max_patterns = self.get_setting('atpg.inputs.max_patterns')
+        self.spf_file = self.get_setting('atpg.inputs.spf_file')
+        print(self.spf_file)
+        return True
+
+    @property
+    def steps(self) -> List[HammerToolStep]:
+        return self.make_steps_from_methods([
+            self.fill_outputs,
+            self.run_build,
+            self.run_drc,
+            self.run_atpg,
+            self.run_testmax,
+            self.generate_reports
+            ])
+
+    def run_build(self) -> bool:
+        """Perform ATPG build-related steps (1-4):
+
+        1. Prepare netlist(s)
+        2. Read netlist(s)
+        3. Read library models
+        4. Build the ATPG design model
+
+        Writes initial TCL lines into `self.output` for consumption by `run_atpg`.
+        """
+        log = HammerVLSILogging.context("atpg.testmax.build")
+
+        if not hasattr(self, "_output"):
+            self.attr_setter("_output", [])
+        else:
+            # Clear previous contents when starting a fresh build
+            self.output.clear()
+        self.append('# TestMax ATPG build script')
+        self.append(f'# top_module = {self.top_module}')
+
+        # 1) Prepare your netlist(s)
+        for f in self.input_files:
+            self.append(f'# prepare netlist: {os.path.abspath(f)}')
+
+        # 2) Read the netlist(s)
+        print(self.input_files)
+        for f in self.input_files:
+            self.append(f'read_netlist {os.path.abspath(f)}')
+
+        # 3) Read the library models
+        # lib_files = self.get_setting('atpg.testmax.library_models')
+        # if lib_files:
+        #     for lf in lib_files:
+        #         self.append(f'read_netlist {os.path.abspath(lf)}')
+
+
+        # 4) Build the ATPG design model
+        self.append('run_build_model')
+
+        return True
+
+    def run_drc(self) -> bool:
+        self.append(f'run_drc {os.path.abspath(self.spf_file)}')
+        return True
+
+    def run_atpg(self) -> bool:
+        """Run the ATPG stage following the canonical ATPG flow.
+
+        5. (test DRC is run in the separate `run_drc` step)
+        6. Prepare design for ATPG, set up fault list and options
+        7. Run ATPG
+        8. Analyze ATPG output and review coverage
+        9. Write/save test patterns
+
+        This method builds `self.output` (TCL/script lines) which `run_testmax`
+        writes and passes to the TestMax binary.
+        """
+        log = HammerVLSILogging.context("atpg")
+
+        # Announce configuration
+        log.debug(
+            f"ATPG create_patterns={self.create_patterns}, fault_type={self.fault_type}, \
+             max_patterns={self.max_patterns}, "
+        )
+
+        # Ensure a build-stage has initialized the TCL output buffer. If not,
+        # create a minimal header so this step can run standalone for now.
+        # Accessing `self.output` via the property will create the underlying
+        # storage (via attr_getter), so use it and mutate the list rather than
+        # assigning to the read-only property.
+        try:
+            _ = self.output
+        except Exception:
+            # Force-create the underlying storage
+            self.attr_setter("_output", [])
+        # Now safely append lines to the TCL buffer
+        self.append('# TestMax ATPG flow script')
+        self.append(f'# top_module = {self.top_module}')
+
+        # 5) Test DRC is executed earlier (run_drc), so assume model is DRC-clean now.
+        self.append('# test_drc assumed completed in run_drc step')
+
+        # 6) Prepare for ATPG: set options and create fault list
+        self.append(f'set_faults -model {self.fault_type}')
+        self.append("add_faults -all")
+        if self.max_patterns is not None:
+            self.append(f'set_atpg -patterns {self.max_patterns}')
+        # if self.pattern_format is not None:
+        #     self.append(f'# set_pattern_format {self.pattern_format}')
+
+        # Create a default fault list placeholder
+        # faultlist_setting = self.get_setting('atpg.testmax.faultlist')
+        # fault_list_path = faultlist_setting if faultlist_setting is not None else os.path.join(self.run_dir, f'{self.top_module}_faultlist.txt')
+        # self.append(f'# create_fault_list -> {fault_list_path}')
+
+        # 7) Run automatic test pattern generation
+        generated_pattern_path = None
+        if self.create_patterns:
+            # TODO
+            # generated_pattern_path = self.get_setting('atpg.testmax.generated_patterns')
+            if generated_pattern_path is None:
+                generated_pattern_path = os.path.join(self.run_dir, f'{self.top_module}_patterns')
+            self.append(f'# run_atpg -> generate patterns to {generated_pattern_path}')
+            self.append(f'run_atpg')
+
+
+        # TODO
+        # 8) Analyze ATPG pattern generation output and review coverage
+        self.append('# analyze_atpg_output')
+        self.append('# review_test_coverage')
+
+        # 9) Write and save test patterns (already covered by generated_pattern_path)
+        if generated_pattern_path is not None:
+            self.append(f'write_patterns {generated_pattern_path}')
+
+        # TODO
+        # Fault-simulation: either on an existing pattern set or on generated patterns
+        # existing_patterns = self.fault_simulate_existing
+        # if existing_patterns:
+        #     self.append(f'# fault_simulate existing patterns: {existing_patterns} -> {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
+        #     self.append(f'# TODO: invoke TestMax fault-sim on {existing_patterns} and write faults to {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
+        # elif generated_pattern_path and self.fault_simulate_generated:
+        #     self.append(f'# fault_simulate generated patterns: {generated_pattern_path} -> {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
+        #     self.append(f'# TODO: invoke TestMax fault-sim on {generated_pattern_path} and write faults to {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
+
+        # TODO
+        # Optionally print/export the fault list
+        # if self.print_fault_list:
+        #     self.append(f'# print_fault_list {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
+        #     self.append(f'write_faults {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
+
+        # Record outputs for downstream consumers (pattern files)
+        if generated_pattern_path is not None:
+            self.output_patterns = [generated_pattern_path]
+        else:
+            self.output_patterns = []
+
+        # Ensure fault list output path is set (downstream can check existence)
+        #self.output_fault_list = self.output_fault_list or os.path.join(self.run_dir, f'{self.top_module}_faults.txt')
+
+        return True
+
+    def generate_reports(self) -> bool:
+        ## placeholder
+        return True
+
+    @property
+    def env_vars(self) -> Dict[str, str]:
+        env = dict(super().env_vars)
+        env["PATH"] = "%s:%s" % (
+            os.path.dirname(self.get_setting("atpg.testmax.testmax_bin")),
+            os.environ["PATH"])
+        return env
+
+    def run_testmax(self) -> bool:
+        HammerVLSILogging.enable_colour = False
+        HammerVLSILogging.enable_tag = False
+        testmax_bin = os.path.basename(self.get_setting("atpg.testmax.testmax_bin"))
+        testmax_tcl = os.path.join(self.run_dir, "testmax.tcl")
+        # Annotate the generated TCL with ATPG settings for traceability
+        tcl_lines = []
+        tcl_lines.append('# Generated by hammer-vlsi testmax wrapper')
+        tcl_lines.append('# atpg.testmax settings:')
+        tcl_lines.append(f"#   create_patterns = {self.create_patterns}")
+        tcl_lines.append(f"#   fault_type = {self.fault_type}")
+        tcl_lines.append('')
+        tcl_lines.extend(self.output)
+        tcl_lines.append('exit')
+        with open(testmax_tcl, 'w') as _f:
+            _f.write('\n'.join(tcl_lines))
+        args = [testmax_bin, "-shell", "-64bit", testmax_tcl]
+        # TODO: check outputs from lines?
+        lines = self.run_executable(args, self.run_dir)
+        HammerVLSILogging.enable_colour = True
+        HammerVLSILogging.enable_tag = True
+        return True
+
+tool = TESTMAX
