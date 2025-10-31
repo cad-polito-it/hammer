@@ -27,6 +27,9 @@ vlsi.core:
   # SRAM Generator tool to use.
   sram_generator_tool: str
 
+  # ATPG tool to use
+  atpg_tool: str
+
   # Sim tool to use.
   sim_tool: str
 
@@ -433,6 +436,80 @@ technology.core:
     std_cell_supplies:
       power: list[str]
       ground: list[str]
+
+# Specific inputs for the simulation tool.
+atpg.inputs:
+  # Top RTL module for simulation
+  # type: str
+  top_module: Optional[str]
+
+  # Input files for simulation including verilog sources, testharness/testbench, etc.
+  # type: list[str]
+  input_files: list[str]
+
+  # Permissive options for the simulator generation
+  # type: list[str]
+  options: list[str]
+
+  # Define options passed when generating the simulation executable
+  # type: list[str]
+  defines: list[str]
+
+  # C compiler options used when generating the simulation executable
+  # type: list[str]
+  compiler_cc_opts: list[str]
+
+  # C linker options used when generating the simulation executable
+  # type: list[str]
+  compiler_ld_opts: list[str]
+
+  # Simulation timescale
+  # type: str
+  timescale: Optional[str]
+
+  # Benchmarks to run with the simulator executable
+  # type: list[str]
+  benchmarks: list[str]
+
+  # Maximum number of simulations to run in parallel.
+  # type: int
+  parallel_runs: int
+
+  # Hierarchical path to the top level instance of the "dut" from the testbench.
+  # type: str
+  tb_dut: str
+
+  # Name of the simulation testbench/test driver module
+  tb_name: str
+
+  # Simulation mode for simulation at different levels of the VLSI flow
+  # type: FlowLevel
+  level: str
+
+  # Path to a list of all registers in the design passed from synthesis or place-and-route
+  # type: str
+  all_regs: str
+
+  # Path to a list of all sequential standard cells in the design passed from synthesis or place-and-route
+  # type: str
+  seq_cells: str
+
+  # SDF File
+  # type: str
+  sdf_file: Optional[str]
+
+  create_patterns: bool
+  fault_type: str
+  max_patterns: Optional[str]
+  spf_file: str
+
+  # Simulation force value used for register initialization for gate level sims
+  # type: int
+  gl_register_force_value: int
+
+  # Turns time annotated sim on or off
+  # type: bool
+  timing_annotated: bool
 
 # Specific inputs for the simulation tool.
 sim.inputs:

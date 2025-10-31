@@ -33,6 +33,9 @@ vlsi.core:
   # Sim tool to use.
   sim_tool: "hammer.sim.mocksim"
 
+  # ATPG tool to use.
+  atpg_tool: "hammer.atpg.testmax"
+
   # Power analysis tool to use.
   power_tool: "hammer.power.nop" # TODO: doesn't exist
 
@@ -725,6 +728,123 @@ technology.core:
     # Names of the power and ground rails of the standard cells
         power: ["VDD"]
         ground: ["VSS"]
+
+
+atpg.inputs:
+  top_module: null # Top RTL module for simulation
+  # type: str
+
+  input_files: [] # Input files for simulation including verilog sources, testharness/testbench, etc.
+  # type: List[str]
+
+  options: [] # Permissive options for the simulator generation
+  # These options will appear as plain string option additions when generating the simulation executable
+  # type: List[str]
+
+  defines: [] # Define options passed when generating the simulation executable
+  # For example: when passed to VCS, each define in the input list will be added as "+define+" + {define}
+  # type: List[str]
+
+  compiler_cc_opts: [] # C compiler options used when generating the simulation executable
+  # For example: when passed to VCS, each compiler_cc_opt will be added as "-CC " + {compiler_cc_opt}
+  # type: List[str]
+
+  compiler_ld_opts: [] # C linker options used when generating the simulation executable
+  # For example: when passed to VCS, each compiler_ld_opt will be added as "-LDFLAGS " + {compiler_ld_opt}
+  # type: List[str]
+
+  timescale: null # Simulation timescale
+  # This is passed as a plain string
+  # For example, for VCS, timescale may be set as "sim.inputs.timescale: '1ns/10ps' which would be passed as "-timescale=1ns/10ps"
+  # type: str
+
+  benchmarks: [] # Benchmarks to run with the simulator executable
+  # This is a list of paths to benchmark binaries that will be run with the simulator to test the design if the testbench requires it.
+  # For example, this may be a RISCV binary like rv64ui-p-simple.
+  # If left empty, the simulation will execute as normal.
+  # type: List[str]
+
+  parallel_runs: 1 # Maximum number of simulations to run in parallel.
+  # A value of -1 indicates all simulations should be launched in parallel
+  # A value of 0 and 1 are treated the same and all simulations are run serially
+  # type: int
+
+  tb_dut: "dut" # Hierarchical path to the top level instance of the "dut" from the testbench.
+  # For example, this will be used to generate the hierarchical path through the testbench and DUT to each sequential element in the design.
+  # TODO(johnwright) automate this by parsing the TB verilog?
+  # type: str
+
+  tb_name: "TestDriver" # Name of the simulation testbench/test driver module
+
+  level: "syn" # Simulation mode for simulation at different levels of the VLSI flow
+  # Valid options are:
+  #   "rtl" for rtl level simulation
+  #   "syn" for post-synthesis level simulation
+  #   "par" for post-par level simulation
+  # type: FlowLevel
+
+  all_regs: "" # Path to a list of all registers in the design passed from synthesis or place-and-route
+  # type: str
+
+  seq_cells: "" # Path to a list of all sequential standard cells in the design passed from synthesis or place-and-route
+  # type: str
+
+  create_patterns: True
+  fault_type: "stuck"
+  max_patterns: None
+  spf_file: ""
+
+  sdf_file: null # SDF File
+  # type: str
+  # Standard Delay Format file for use in timing annotated sims
+  # leave as null if not in use
+
+  gl_register_force_value: 0 # Simulation force value used for register initialization for gate level sims
+  # TODO: add random initialization option
+  # type: int
+
+  timing_annotated: false # Turns time annotated sim on or off
+  # type: bool
+  # If set to False, the sim will be purely functional, regardless of the simulation "level".
+  # If set to True, the sim will be time annotated based on synthesis or PAR results.
+
+  # Settings related to activity file (SAIF) dumping
+  saif:
+    mode: "none" # How Hammer determines whether and when to start or stop the activity dumping
+    # Valid options:
+    # time - Start dumping at the specified start_time and end at the specified end_time
+    # trigger - Inserts the trigger into the simulators run script before starting the dump and
+    #   after enabling dumping before stopping dumping. See your simulator plugin for an example
+    # trigger_raw - Inserts the given tcl directly into the simulators run script with no checking.
+    # full - Start dumping at the beginning of simulation and stop at the end.
+    # none - Do not dump an SAIF
+    # type: str
+    start_time: "0ns" # The times the simulator should begin and end its dumping of the SAIF file.
+    # type: TimeValue
+    end_time: "1ns" # type: TimeValue
+    start_trigger_raw: "" # The raw triggers that will occur when the dump should start and when the dump should end.
+    # The exact trigger format will depend on the underlying tool.
+    # type: str
+    end_trigger_raw: ""
+
+  execution_flags: [] # Flags to run with the simulator
+  # Each string in this list will be passed as an option when actually executing the simulation executable generated from the previous arguments.
+  # type: List[str]
+
+  execution_flags_prepend: [] # Flags that are to be pre-pended to the simulator execution flags in "execution_flags"
+  # type: List[str]
+
+  execution_flags_append: [] # Flags that are to be appended to the simulator execution flags in "execution_flags"
+  # type: List[str]
+
+  execute_sim: true # Determines whether or not the simulation executable that is generated with the above inputs will actually be executed with the given flags or if the executable will just be generated in the specified run directory.
+  # type: bool
+
+atpg.submit:
+  command: "${vlsi.submit.command}"
+  command_meta: lazysubst
+  settings: "vlsi.submit.settings"
+  settings_meta: lazycrossref
 
 # Specific inputs for the simulation tool.
 # These inputs will vary based on if the simulation is for RTL, post synthesis, or post PAR.
