@@ -293,13 +293,13 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
 #set_dft_signal -view existing_dft -type ScanClock -port [{clock} "CK"] -associated_clock "CK" -timing [list 45 95] -active_state 1 -connect_to {clock}
 #""".format(clock=clocks[0]))
         self.append("""
-set_dft_signal -view existing_dft -type ScanClock -port [{clock}] -timing [list 45 95] -active_state 1 -connect_to {clock}
+set_dft_signal -view existing_dft -type ScanClock -port \"{clock}\" -timing [list 45 95] -active_state 1 -connect_to \"{clock}\"
 """.format(clock=clocks[0]))
         self.append("create_port test_si -direction in")
         self.append("create_port test_se -direction in")
         self.append("create_port test_so -direction out")
         self.append("""
-set_dft_signal -view spec -type Reset -port {reset} -active_state {state}
+set_dft_signal -view spec -type Reset -port \"{reset}\" -active_state {state}
 """.format(reset=resets[0],state=reset_active_negated[0]))
         self.append("set_dft_signal -view spec -type ScanDataIn -port test_si ")
         self.append("set_dft_signal -view spec -type ScanDataOut -port test_so")
