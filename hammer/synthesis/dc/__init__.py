@@ -188,9 +188,10 @@ class DC(HammerSynthesisTool, SynopsysCommon):
         self.append("link")
 
         # Set Rams as black boxes
-        self.append("foreach_in_collection ram [get_designs *ram*] \{ ")
+        self.append("foreach_in_collection ram [get_designs *ram*] {")
         self.append("set_attribute $ram is_black_box true")
-        self.append("\} ")
+        self.append("}")
+
         return True
 
     def apply_constraints(self) -> bool:
@@ -232,6 +233,8 @@ group_path -name FEEDTHROUGH -from [remove_from_collection [all_inputs] ${ports_
         return True
 
     def generate_reports(self) -> bool:
+        # Naming rules
+        self.append("change_names -rules verilog -hierarchy")
         self.append("""
 report_reference -hierarchy > \\
     {report_dir}/{design_name}.mapped.report_reference.out
@@ -289,17 +292,15 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
         self.append("set_scan_configuration -style multiplexed_flip_flop")
         self.append("compile -scan")
         self.append("set_scan_configuration -chain_count 1  -create_test_clocks_by_system_clock_domain true")
-#        self.append("""
-#set_dft_signal -view existing_dft -type ScanClock -port [{clock} "CK"] -associated_clock "CK" -timing [list 45 95] -active_state 1 -connect_to {clock}
-#""".format(clock=clocks[0]))
+        # TODO add the dft definition from yml
         self.append("""
-set_dft_signal -view existing_dft -type ScanClock -port [{clock}] -timing [list 45 95] -active_state 1 -connect_to {clock}
+set_dft_signal -view existing_dft -type ScanClock -port [\"{clock}\", \"CK\"] -timing [list 45 95] -active_state 1 -connect_to \"{clock}\"
 """.format(clock=clocks[0]))
         self.append("create_port test_si -direction in")
         self.append("create_port test_se -direction in")
         self.append("create_port test_so -direction out")
         self.append("""
-set_dft_signal -view spec -type Reset -port {reset} -active_state {state}
+set_dft_signal -view existing_dft -type Reset -port \"{reset}\" -active_state {state}
 """.format(reset=resets[0],state=reset_active_negated[0]))
         self.append("set_dft_signal -view spec -type ScanDataIn -port test_si ")
         self.append("set_dft_signal -view spec -type ScanDataOut -port test_so")
