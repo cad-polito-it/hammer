@@ -294,7 +294,7 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
         self.append("set_scan_configuration -chain_count 1  -create_test_clocks_by_system_clock_domain true")
         # TODO add the dft definition from yml
         self.append("""
-set_dft_signal -view existing_dft -type ScanClock -port [\"{clock}\", \"CK\"] -timing [list 45 95] -active_state 1 -connect_to \"{clock}\"
+set_dft_signal -view existing_dft -type ScanClock -port \"{clock}\" -timing [list 45 95] -active_state 1 -connect_to \"{clock}\"
 """.format(clock=clocks[0]))
         self.append("create_port test_si -direction in")
         self.append("create_port test_se -direction in")
