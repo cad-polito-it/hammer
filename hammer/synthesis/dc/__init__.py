@@ -188,9 +188,17 @@ class DC(HammerSynthesisTool, SynopsysCommon):
         self.append("link")
 
         # Set Rams as black boxes
-        self.append("foreach_in_collection ram [get_designs *ram*] \{ ")
+        self.append("foreach_in_collection ram [get_designs \".*ram.*\"] {")
         self.append("set_attribute $ram is_black_box true")
-        self.append("\} ")
+        self.append("set_attribute $ram is_memory_cell true")
+        self.append("set_dont_touch $ram")
+        self.append("}")
+
+        self.append("foreach_in_collection ram [get_instances \"mem*\"] {")
+        self.append("set_attribute $ram is_black_box true")
+        self.append("set_attribute $ram is_memory_cell true")
+        self.append("set_dont_touch $ram")
+        self.append("}")
         return True
 
     def apply_constraints(self) -> bool:
@@ -219,19 +227,21 @@ group_path -name FEEDTHROUGH -from [remove_from_collection [all_inputs] ${ports_
 """)
         # Prevent assignment statements in the Verilog netlist.
         self.append("set_fix_multiple_port_nets -all -buffer_constants")
-
+        self.append("change_names -rules verilog -hierarchy")
         return True
 
 
     def optimize_design(self) -> bool:
         # Optimize design
         self.append("compile_ultra %s" % ' '.join(self.get_setting("synthesis.dc.compile_args")))
-        self.append("change_names -rules verilog -hierarchy")
+
         # Write and close SVF file and make it available for immediate use
         self.append("set_svf -off")
         return True
 
     def generate_reports(self) -> bool:
+        # Naming rules
+        self.append("change_names -rules verilog -hierarchy")
         self.append("""
 report_reference -hierarchy > \\
     {report_dir}/{design_name}.mapped.report_reference.out
@@ -284,26 +294,25 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
         clocks = [clock.name for clock in self.get_clock_ports()]
         resets = [reset.name for reset in self.get_reset_ports()]
         reset_active_negated = [0 if reset.active_negated else 1 for reset in self.get_reset_ports()]
-        self.append("set compile_timing_high_effort true")
         self.append("set compile_delete_unloaded_sequential_cells true")
         self.append("set_scan_configuration -style multiplexed_flip_flop")
         self.append("compile -scan")
         self.append("set_scan_configuration -chain_count 1  -create_test_clocks_by_system_clock_domain true")
-#        self.append("""
-#set_dft_signal -view existing_dft -type ScanClock -port [{clock} "CK"] -associated_clock "CK" -timing [list 45 95] -active_state 1 -connect_to {clock}
-#""".format(clock=clocks[0]))
+        # TODO add the dft definition from yml
         self.append("""
-set_dft_signal -view existing_dft -type ScanClock -port \"{clock}\" -timing [list 45 95] -active_state 1 -connect_to \"{clock}\"
+set_dft_signal -view existing_dft -type ScanClock -port \"{clock}\"  -timing [list 45 95] -active_state 1
 """.format(clock=clocks[0]))
         self.append("create_port test_si -direction in")
         self.append("create_port test_se -direction in")
         self.append("create_port test_so -direction out")
+        self.append("create_port test_mode -direction in")
         self.append("""
-set_dft_signal -view spec -type Reset -port \"{reset}\" -active_state {state}
+set_dft_signal -view existing_dft -type Reset -port \"{reset}\" -active_state {state}
 """.format(reset=resets[0],state=reset_active_negated[0]))
         self.append("set_dft_signal -view spec -type ScanDataIn -port test_si ")
         self.append("set_dft_signal -view spec -type ScanDataOut -port test_so")
         self.append("set_dft_signal -view spec -type ScanEnable -port test_se -active_state 1")
+        self.append("set_dft_signal -view spec -type TestMode -port test_mode -active_state 1")
         self.append("create_test_protocol")
         self.append("dft_drc -verbose")
         self.append("preview_dft")
