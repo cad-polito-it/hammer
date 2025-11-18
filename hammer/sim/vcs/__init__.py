@@ -113,6 +113,9 @@ class VCS(HammerSimTool, SynopsysTool):
             with open(abspath_all_regs) as reg_file:
                 reg_json = json.load(reg_file)
                 assert isinstance(reg_json, List), "list of all sequential cells should be a json list of dictionaries from string to string not {}".format(type(reg_json))
+                f.write("force {TestDriver.testHarness.chiptop0.test_si} 0\n")
+                f.write("force {TestDriver.testHarness.chiptop0.test_se} 0\n")
+                f.write("force {TestDriver.testHarness.chiptop0.test_mode} 0\n")
                 for reg in sorted(reg_json, key=lambda r: len(r["path"])): # TODO: This is a workaround for a bug in P-2019.06
                     path = reg["path"]
                     path = '.'.join(path.split('/'))
