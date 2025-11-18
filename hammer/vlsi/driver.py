@@ -19,7 +19,7 @@ from hammer.tech import MacroSize
 from .hammer_tool import HammerTool
 from .hooks import HammerToolHookAction
 from .hammer_vlsi_impl import HammerVLSISettings, HammerPlaceAndRouteTool, HammerSynthesisTool, \
-    HammerSignoffTool, HammerDRCTool, HammerLVSTool, HammerSRAMGeneratorTool, HammerPCBDeliverableTool, HammerSimTool, HammerPowerTool, HammerFormalTool, HammerTimingTool, \
+    HammerSignoffTool, HammerDRCTool, HammerLVSTool, HammerSRAMGeneratorTool, HammerPCBDeliverableTool, HammerSimTool, HammerFaultSimTool, HammerPowerTool, HammerFormalTool, HammerTimingTool, \
     HierarchicalMode, load_tool, PlacementConstraint, SRAMParameters, ILMStruct, FlowLevel
 from hammer.logging import HammerVLSIFileLogger, HammerVLSILogging, HammerVLSILoggingContext
 from .submit_command import HammerSubmitCommand
@@ -115,6 +115,7 @@ class HammerDriver:
         self.lvs_tool = None  # type: Optional[HammerLVSTool]
         self.sram_generator_tool = None  # type: Optional[HammerSRAMGeneratorTool]
         self.sim_tool = None  # type: Optional[HammerSimTool]
+        self.fsim_tool = None  # type: Optional[HammerFaultSimTool]
         self.power_tool = None # type: Optional[HammerPowerTool]
         self.formal_tool = None # type: Optional[HammerFormalTool]
         self.timing_tool = None # type: Optional[HammerTimingTool]
@@ -126,6 +127,7 @@ class HammerDriver:
         self.post_custom_lvs_tool_hooks = []  # type: List[HammerToolHookAction]
         self.post_custom_sram_generator_tool_hooks = []  # type: List[HammerToolHookAction]
         self.post_custom_sim_tool_hooks = []  # type: List[HammerToolHookAction]
+        self.post_custom_fsim_tool_hooks = []  # type: List[HammerToolHookAction]
         self.post_custom_power_tool_hooks = [] # type: List[HammerToolHookAction]
         self.post_custom_formal_tool_hooks = [] # type: List[HammerToolHookAction]
         self.post_custom_timing_tool_hooks = [] # type: List[HammerToolHookAction]
@@ -582,6 +584,77 @@ class HammerDriver:
             assert isinstance(sim_tool, HammerSimTool)
             return self.set_up_sim_tool(sim_tool, name, run_dir)
 
+    def set_up_fsim_tool(self, fsim_tool: HammerFaultSimTool,
+                              name: str, run_dir: str = "") -> bool:
+        """
+        Set up and store the given fault simulation tool instance for use in this
+        driver.
+        :param fsim_tool: Tool instance.
+        :param name: Short name (e.g. "vcs") of the tool instance. Typically
+                     obtained from the database.
+        :param run_dir: Directory to use for the tool run_dir. Defaults to the
+                        run_dir passed in the HammerDriver constructor.
+        :return: True if setup was successful.
+        """
+
+        if self.tech is None:
+            self.log.error("Must load technology before loading fsim tool")
+            return False
+
+        if run_dir == "":
+            run_dir = os.path.join(self.obj_dir, "fsim-rundir")
+
+        fsim_tool.name = name
+        fsim_tool.logger = self.log.context("fsim")
+        fsim_tool.set_database(self.database)
+        fsim_tool.run_dir = run_dir
+        fsim_tool.technology = self.tech
+        fsim_tool.input_files = self.database.get_setting("fsim.inputs.input_files")
+        fsim_tool.top_module = self.database.get_setting("fsim.inputs.top_module", nullvalue="")
+        fsim_tool.hierarchical_mode = HierarchicalMode.from_str(
+            self.database.get_setting("vlsi.inputs.hierarchical.mode"))
+        # Special case: if non-leaf hierarchical and gate-level, append ilm fsim netlists
+        if fsim_tool.hierarchical_mode.is_nonleaf_hierarchical() and fsim_tool.level.is_gatelevel():
+            for ilm in fsim_tool.get_input_ilms():
+                if isinstance(ilm.fsim_netlist, str):
+                    fsim_tool.input_files.append(ilm.fsim_netlist)
+        fsim_tool.input_files = self.database.get_setting("fsim.inputs.input_files")
+        fsim_tool.submit_command = HammerSubmitCommand.get("fsim", self.database)
+        fsim_tool.all_regs = self.database.get_setting("fsim.inputs.all_regs")
+        fsim_tool.seq_cells = self.database.get_setting("fsim.inputs.seq_cells")
+        fsim_tool.sdf_file = self.database.get_setting("fsim.inputs.sdf_file")
+
+        missing_inputs = False
+        if fsim_tool.top_module == "":
+            self.log.error("Top module not specified for fault simulation")
+            missing_inputs = True
+        if len(fsim_tool.input_files) == 0:
+            self.log.error("No input files specified for fault simulation")
+            missing_inputs = True
+        if missing_inputs:
+            return False
+
+        self.fsim_tool = fsim_tool
+        self.tool_configs["fault_simulation"], self.tool_config_types["fault_simulation"] = fsim_tool.get_config()
+        self.update_tool_configs()
+        return True
+
+    def load_fsim_tool(self, run_dir: str = "") -> bool:
+        """
+        Load the fault simulation tool based on the given database.
+
+        :param run_dir: Directory to use for the tool run_dir. Defaults to the run_dir passed in the HammerDriver
+                        constructor.
+        :return: True if fault simulation tool loading was successful, False otherwise.
+        """
+        config_result = self.instantiate_tool_from_config("fsim", HammerFaultSimTool)
+        if config_result is None:
+            return False
+        else:
+            (fsim_tool, name) = config_result
+            assert isinstance(fsim_tool, HammerFaultSimTool)
+            return self.set_up_fsim_tool(fsim_tool, name, run_dir)
+
     def set_up_power_tool(self, power_tool: HammerPowerTool,
                               name: str, run_dir: str = "") -> bool:
         """
@@ -879,6 +952,15 @@ class HammerDriver:
         """
         self.post_custom_sim_tool_hooks = list(hooks)
 
+    def set_post_custom_fsim_tool_hooks(self, hooks: List[HammerToolHookAction]) -> None:
+        """
+        Set the extra list of hooks used for control flow (resume/pause) in run_fsim.
+        They will run after main/hook_actions.
+
+        :param hooks: Hooks to run
+        """
+        self.post_custom_fsim_tool_hooks = list(hooks)
+
     def set_post_custom_power_tool_hooks(self, hooks: List[HammerToolHookAction]) -> None:
         """
         Set the extra list of hooks used for control flow (resume/pause) in run_power.
@@ -999,6 +1081,33 @@ class HammerDriver:
                 "sim.inputs.seq_cells": output_dict["synthesis.outputs.seq_cells"],
                 "sim.inputs.sdf_file": output_dict["synthesis.outputs.sdf_file"],
                 "sim.inputs.level": 'syn',
+                "vlsi.builtins.is_complete": False
+            }  # type: Dict[str, Any]
+            return result
+        except KeyError:
+            # KeyError means that the given dictionary is missing output keys.
+            return None
+
+    @staticmethod
+    def synthesis_output_to_fsim_input(output_dict: dict) -> Optional[dict]:
+        """
+        Generate the appropriate inputs for running gate level fault simulations from the
+        outputs of synthesis run.
+        Does not merge the results with any project dictionaries.
+        :param output_dict: Dict containing synthesis.outputs.*
+        :return: fsim.inputs.* settings generated from output_dict,
+                 or None if output_dict was invalid
+        """
+        try:
+            output_files = deeplist(output_dict["synthesis.outputs.output_files"])
+            result = {
+                "fsim.inputs.input_files": output_files,
+                "fsim.inputs.input_files_meta": "append",
+                "fsim.inputs.top_module": output_dict["synthesis.inputs.top_module"],
+                "fsim.inputs.all_regs": output_dict["synthesis.outputs.all_regs"],
+                "fsim.inputs.seq_cells": output_dict["synthesis.outputs.seq_cells"],
+                "fsim.inputs.sdf_file": output_dict["synthesis.outputs.sdf_file"],
+                "fsim.inputs.level": 'syn',
                 "vlsi.builtins.is_complete": False
             }  # type: Dict[str, Any]
             return result
@@ -1472,6 +1581,55 @@ class HammerDriver:
             if output_config.get("vlsi.builtins.is_complete", True):
                 self.log.error(
                     "The simulation plugin is mis-written; "
+                    "it did not mark its output dictionary as output-only "
+                    "or did not call super().export_config_outputs(). "
+                    "Subsequent commands might not behave correctly.")
+                output_config["vlsi.builtins.is_complete"] = False
+        except ValueError as e:
+            self.log.fatal(e.args[0])
+            return False, {}
+
+        return run_succeeded, output_config
+
+    def run_fsim(self, hook_actions: Optional[List[HammerToolHookAction]] = None, force_override: bool = False) -> \
+            Tuple[bool, dict]:
+        """
+        Run fault simulation based on the given database.
+        The output config dict returned does NOT have a copy of the input config settings.
+
+        :param hook_actions: List of hook actions, or leave as None to use the hooks sets in set_fsimulation_hooks.
+                             Hooks from set_fsimulation_hooks, if present, will be appended afterwards.
+        :param force_override: Set to true to overwrite instead of append.
+        :return: Tuple of (success, output config dict)
+        """
+        if self.fsim_tool is None:
+            self.log.error("Must load fault simulation tool before calling run_fsim")
+            return False, {}
+
+        # TODO: think about artifact storage?
+        self.log.info("Starting fault simulation with tool '%s'" % (self.fsim_tool.name))
+        if hook_actions is None:
+            hooks_to_use = self.post_custom_fsim_tool_hooks
+        else:
+            if force_override:
+                hooks_to_use = hook_actions
+            else:
+                hooks_to_use = hook_actions + self.post_custom_fsim_tool_hooks
+
+        run_succeeded = self.fsim_tool.run(hooks_to_use)
+        if not run_succeeded:
+            self.log.error("Fault simulation tool %s failed! Please check its output." % self.fsim_tool.name)
+            # Allow the flow to keep running, just in case.
+            # TODO: make this an option
+
+        # Record output from the tool into the JSON output.
+        # Note: the output config dict is NOT complete
+        output_config = {}  # type: Dict[str, Any]
+        try:
+            output_config = deepdict(self.fsim_tool.export_config_outputs())
+            if output_config.get("vlsi.builtins.is_complete", True):
+                self.log.error(
+                    "The fault simulation plugin is mis-written; "
                     "it did not mark its output dictionary as output-only "
                     "or did not call super().export_config_outputs(). "
                     "Subsequent commands might not behave correctly.")

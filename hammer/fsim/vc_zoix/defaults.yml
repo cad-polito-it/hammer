@@ -1,0 +1,23 @@
+# Default settings for simulation using VCS
+fsim.vc_zoix:
+
+  # Location of the binary.
+  vcs_bin: "${synopsys.synopsys_home}/vcs/${fsim.vc_zoix.version}/bin/vcs"
+  vcs_bin_meta: lazysubst
+  vc_fcc_bin: "${synopsys.synopsys_home}/vcs/${fsim.vc_zoix.version}/bin/vc_fcc"
+  vc_fcc_bin_meta: lazysubst
+  vc_fcm_bin: "${synopsys.synopsys_home}/vcs/${fsim.vc_zoix.version}/bin/vc_fcm"
+  vc_fcm_bin_meta: lazysubst
+  vcs_home: "${synopsys.synopsys_home}/vcs/${fsim.vc_zoix.version}"
+  vcs_home_meta: lazysubst
+  verdi_home: "${synopsys.synopsys_home}/verdi/${fsim.vc_zoix.version}"
+  verdi_home_meta: lazysubst
+
+  # VCS version to use.
+  # Used to locate the binary - e.g. the 'M-2017.03' in ${synopsys.synopsys_home}/vcs/M-2017.03/bin/vcs
+  version: "V-2023.12-SP1"
+
+  # Option to turn on Fine-Grained Parallelism (FGP)
+  # Not all designs benefit from parallelized simulation.
+  # Use at your own risk - it is known to be buggy!
+  fgp: false
