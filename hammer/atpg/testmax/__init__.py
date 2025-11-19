@@ -90,9 +90,15 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         #     for lf in lib_files:
         #         self.append(f'read_netlist {os.path.abspath(lf)}')
 
+        self.append("set_build -merge noglobal_tie_propagate")
+        self.append("set_build -nodelete_unused_gates")
+        self.append("set_build -add_celldefine_nets")
 
+        # Setting the severity of the rule B5 to warning so the black boxes are automatically set
+        self.append("set_rules B5 warning")
+        self.append("set_netlist -escape all")
         # 4) Build the ATPG design model
-        self.append('run_build_model')
+        self.append(f'run_build_model {self.top_module}')
 
         return True
 
@@ -225,8 +231,8 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         tcl_lines.append('exit')
         with open(testmax_tcl, 'w') as _f:
             _f.write('\n'.join(tcl_lines))
+            _f.write('\nexit')
         args = [testmax_bin, "-shell", "-64bit", testmax_tcl]
-        # TODO: check outputs from lines?
         lines = self.run_executable(args, self.run_dir)
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
