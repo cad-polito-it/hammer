@@ -25,6 +25,12 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
     def tool_config_prefix(self) -> str:
         return "atpg.testmax"
 
+    @property
+    def report_dir(self) -> str:
+        dirname = os.path.join(self.run_dir, "reports")
+        os.makedirs(dirname, exist_ok=True)
+        return dirname
+
     def fill_outputs(self) -> bool:
         print(self.input_files)
         self.output_waveforms = []
@@ -51,8 +57,8 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.run_build,
             self.run_drc,
             self.run_atpg,
-            self.run_testmax,
-            self.generate_reports
+            self.generate_reports,
+            self.run_testmax
             ])
 
     def run_build(self) -> bool:
@@ -166,12 +172,6 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.append(f'# run_atpg -> generate patterns to {generated_pattern_path}')
             self.append(f'run_atpg')
 
-
-        # TODO
-        # 8) Analyze ATPG pattern generation output and review coverage
-        self.append('# analyze_atpg_output')
-        self.append('# review_test_coverage')
-
         # 9) Write and save test patterns (already covered by generated_pattern_path)
         if generated_pattern_path is not None:
             self.append(f'write_patterns {generated_pattern_path}')
@@ -204,7 +204,14 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         return True
 
     def generate_reports(self) -> bool:
-        ## placeholder
+        report_faults_path = os.path.join(self.report_dir, f'{self.top_module}_faults.fau')
+        self.append(f"report_faults -all > {report_faults_path}")
+
+        report_au_faults_path = os.path.join(self.report_dir, f'{self.top_module}_au_faults.fau')
+        self.append(f"report_faults -class AU > {report_au_faults_path}")
+
+        atpg_untestable_path = os.path.join(self.report_dir, f'{self.top_module}_au_analysis.rpt')
+        self.append(f"analyze_faults -class AU > {atpg_untestable_path}")
         return True
 
     @property
