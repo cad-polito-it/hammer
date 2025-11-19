@@ -791,7 +791,7 @@ atpg.inputs:
 
   create_patterns: True
   fault_type: "stuck"
-  max_patterns: None
+  max_patterns: null
   spf_file: ""
 
   sdf_file: null # SDF File
