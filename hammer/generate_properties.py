@@ -220,8 +220,6 @@ def main(args) -> int:
                                 InterfaceVar("sdf_file", "Optional[str]", "optional SDF file needed for timing annotated gate level sims")
                             ],
                             outputs=[
-                                InterfaceVar("output_waveforms", "List[str]", "paths to output waveforms"),
-                                InterfaceVar("output_saifs", "List[str]", "paths to output activity files"),
                                 InterfaceVar("output_top_module", "str", "top RTL module"),
                                 InterfaceVar("output_tb_name", "str", "ATPG testbench name"),
                                 InterfaceVar("output_tb_dut", "str", "ATPG DUT instance name"),

@@ -455,26 +455,6 @@ atpg.inputs:
   # type: list[str]
   defines: list[str]
 
-  # C compiler options used when generating the simulation executable
-  # type: list[str]
-  compiler_cc_opts: list[str]
-
-  # C linker options used when generating the simulation executable
-  # type: list[str]
-  compiler_ld_opts: list[str]
-
-  # Simulation timescale
-  # type: str
-  timescale: Optional[str]
-
-  # Benchmarks to run with the simulator executable
-  # type: list[str]
-  benchmarks: list[str]
-
-  # Maximum number of simulations to run in parallel.
-  # type: int
-  parallel_runs: int
-
   # Hierarchical path to the top level instance of the "dut" from the testbench.
   # type: str
   tb_dut: str
@@ -499,17 +479,9 @@ atpg.inputs:
   sdf_file: Optional[str]
 
   create_patterns: bool
-  fault_type: str
+  fault_model: str
   max_patterns: Optional[str]
   spf_file: str
-
-  # Simulation force value used for register initialization for gate level sims
-  # type: int
-  gl_register_force_value: int
-
-  # Turns time annotated sim on or off
-  # type: bool
-  timing_annotated: bool
 
 # Specific inputs for the simulation tool.
 sim.inputs:
