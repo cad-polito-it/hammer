@@ -13,9 +13,9 @@ from hammer.vlsi import HammerSynthesisTool, HammerToolStep
 from hammer.logging import HammerVLSILogging
 import hammer.tech
 from hammer.tech import HammerTechnologyUtils
-from .synopsys_common import SynopsysCommon
+from hammer.common.synopsys import SynopsysTool
 
-class DC(HammerSynthesisTool, SynopsysCommon):
+class DC(HammerSynthesisTool, SynopsysTool):
     def fill_outputs(self) -> bool:
         # Check that the regs paths were written properly if the write_regs step was run
         self.output_seq_cells = self.all_cells_path
@@ -37,7 +37,7 @@ class DC(HammerSynthesisTool, SynopsysCommon):
         if not os.path.isfile(mapped_v):
             raise ValueError("Output mapped verilog %s not found" % (mapped_v))  # better error?
         self.output_files = [mapped_v]
-        # DC does not 
+        # DC does not
         self.output_sdc = self.post_synth_sdc
         self.sdf_file = self.output_sdf_path
         if self.ran_write_outputs:
@@ -73,7 +73,7 @@ class DC(HammerSynthesisTool, SynopsysCommon):
     @ran_write_regs.setter
     def ran_write_regs(self, val: bool) -> None:
         self.attr_setter("_ran_write_regs", val)
-    
+
     @property
     def ran_write_outputs(self) -> bool:
         """The write_ouputs step sets this to True if it was run."""
@@ -91,14 +91,14 @@ class DC(HammerSynthesisTool, SynopsysCommon):
         outputs["synthesis.outputs.all_regs"] = self.output_all_regs
         outputs["synthesis.outputs.sdf_file"] = self.output_sdf_path
         return outputs
-    
+
     @property
     def post_synth_sdc(self) -> Optional[str]:
         return os.path.join(self.result_dir, self.top_module + ".mapped.sdc")
-    
+
     @property
     def output_sdf_path(self) -> str:
-        return os.path.join(self.run_dir, "{top}.mapped.sdf".format(top=self.top_module)) 
+        return os.path.join(self.run_dir, "{top}.mapped.sdf".format(top=self.top_module))
 
     @property
     def steps(self) -> List[HammerToolStep]:
@@ -180,7 +180,7 @@ class DC(HammerSynthesisTool, SynopsysCommon):
 
         # Elaborate design
         self.append("elaborate %s" % self.top_module)
-        
+
         # Se the current design
         self.append("current_design %s" % self.top_module)
 
@@ -269,7 +269,7 @@ write -format ddc -hierarchy -output \\
 write_sdc -nosplit \\
     {result_dir}/{design_name}.mapped.sdc
 """.format(result_dir=self.result_dir, design_name=self.top_module))
-        self.ran_write_outputs = True 
+        self.ran_write_outputs = True
         return True
 
     def generate_dft_reports(self) -> bool:
@@ -279,7 +279,7 @@ write_test_protocol -output {result_dir}/{design_name}_test_protocol.spf
         self.append("""
 write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
 """.format(result_dir=self.result_dir, design_name=self.top_module))
-        
+
         return True
 
     def write_regs(self) -> bool:
@@ -320,7 +320,7 @@ set_dft_signal -view existing_dft -type Reset -port \"{reset}\" -active_state {s
         self.append("check_scan")
         self.append("dft_drc")
         self.append("check_design")
-        
+
         return True
 
     @property

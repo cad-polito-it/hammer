@@ -6,7 +6,8 @@ import copy
 from typing import Optional, Dict, List
 
 from hammer.vlsi import HasSDCSupport, TCLTool, HammerTool
-
+import hammer.tech
+from hammer.tech import HammerTechnologyUtils
 
 class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
     """Mix-in trait with functions useful for Synopsys-based tools."""
@@ -32,7 +33,7 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
         """
         Assumes versions look like NAME-YYYY.MM-SPMINOR.
         Assumes less than 100 minor versions.
-        
+
         Handles various version formats:
         - NAME-YYYY.MM (no minor version)
         - NAME-YYYY.MM-N (where N is a number like 4)
@@ -72,6 +73,66 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
         """
         return inspect.cleandoc(header_text)
 
+    @property
+    def script_dir(self) -> str:
+        dirname = os.path.join(self.run_dir, "scripts")
+        os.makedirs(dirname, exist_ok=True)
+        return dirname
+
+    @property
+    def report_dir(self) -> str:
+        dirname = os.path.join(self.run_dir, "reports")
+        os.makedirs(dirname, exist_ok=True)
+        return dirname
+
+    @property
+    def result_dir(self) -> str:
+        dirname = os.path.join(self.run_dir, "results")
+        os.makedirs(dirname, exist_ok=True)
+        return dirname
+
+    @property
+    def timing_dbs(self) -> List[str]:
+        # Gather/load libraries.
+        return self.technology.read_libs(
+            [hammer.tech.filters.timing_db_filter],
+            HammerTechnologyUtils.to_plain_item)
+
+    @property
+    def milkyway_lib_dirs(self) -> List[str]:
+        return self.technology.read_libs(
+            [hammer.tech.filters.milkyway_lib_dir_filter],
+            HammerTechnologyUtils.to_plain_item)
+
+    @property
+    def milkyway_techfiles(self) -> List[str]:
+        return self.technology.read_libs(
+            [hammer.tech.filters.milkyway_techfile_filter],
+            HammerTechnologyUtils.to_plain_item)
+
+    @property
+    def tlu_max_caps(self) -> List[str]:
+        return self.technology.read_libs(
+            [hammer.tech.filters.tlu_max_cap_filter],
+            HammerTechnologyUtils.to_plain_item)
+
+    @property
+    def tlu_min_caps(self) -> List[str]:
+        return self.technology.read_libs(
+            [hammer.tech.filters.tlu_min_cap_filter],
+            HammerTechnologyUtils.to_plain_item)
+
+    @property
+    def tlu_map(self) -> List[str]:
+        return self.technology.read_libs(
+            [hammer.tech.filters.tlu_map_file_filter],
+            HammerTechnologyUtils.to_plain_item)
+
+    @property
+    def verilog(self) -> List[str]:
+        return [v for v in list(self.input_files) if v.endswith(".v") or v.endswith(".sv")]
+
+
     def get_synopsys_rm_tarball(self, product: str, settings_key: str = "") -> str:
         """Locate reference methodology tarball.
 
@@ -86,7 +147,7 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
             return ""
         else:
             return synopsys_rm_tarball
-    
+
     def child_modules_tcl(self) -> str:
         """
         Dumps a list of child instance paths and their ilm directories.
@@ -138,17 +199,17 @@ close $child_modules_ir
 set write_cells_ir "./find_regs_cells.json"
 set write_cells_ir [open $write_cells_ir "w"]
 puts $write_cells_ir "\\["
-set index 0 
+set index 0
 set len_regs [sizeof_collection [all_registers]]
 
 foreach_in_collection reg [all_registers] {
     set name [get_attribute $reg ref_name]
     if { $index == $len_regs - 1 } {
-        puts $write_cells_ir "   \\"$name\\" " 
+        puts $write_cells_ir "   \\"$name\\" "
     } else {
-        puts $write_cells_ir "   \\"$name\\", " 
+        puts $write_cells_ir "   \\"$name\\", "
     }
-    incr index 
+    incr index
 }
 
 puts $write_cells_ir "\\]"
@@ -163,11 +224,11 @@ set index 0
 foreach_in_collection reg [all_registers -output_pins -edge_triggered] {
     set name [get_attribute $reg full_name]
     if { $index == $len_regs - 1 } {
-        puts $write_regs_ir "   \\"$name\\" " 
+        puts $write_regs_ir "   \\"$name\\" "
     } else {
-        puts $write_regs_ir "   \\"$name\\", " 
+        puts $write_regs_ir "   \\"$name\\", "
     }
-    incr index 
+    incr index
 }
 
 puts $write_regs_ir "\\]"

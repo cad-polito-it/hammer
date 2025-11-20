@@ -25,14 +25,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
     def tool_config_prefix(self) -> str:
         return "atpg.testmax"
 
-    @property
-    def report_dir(self) -> str:
-        dirname = os.path.join(self.run_dir, "reports")
-        os.makedirs(dirname, exist_ok=True)
-        return dirname
-
     def fill_outputs(self) -> bool:
-        print(self.input_files)
         self.output_waveforms = []
         self.output_saifs = []
         self.output_top_module = self.top_module
@@ -41,13 +34,11 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.output_level = self.get_setting("atpg.inputs.level")
         # Path where resulting fault list (from fault simulation) will be written.
         # self.output_fault_list = self.get_setting("atpg.testmax.output_fault_list")
-        # Paths to pattern files produced by ATPG (downstream consumers expect this)
         self.output_patterns = []
         self.create_patterns = self.get_setting('atpg.inputs.create_patterns')
         self.fault_type = self.get_setting('atpg.inputs.fault_type')
         self.max_patterns = self.get_setting('atpg.inputs.max_patterns')
         self.spf_file = self.get_setting('atpg.inputs.spf_file')
-        print(self.spf_file)
         return True
 
     @property
