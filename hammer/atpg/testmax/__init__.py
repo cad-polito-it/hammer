@@ -38,9 +38,12 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.run_build,
             self.run_drc,
             self.run_atpg,
-            self.generate_reports,
-            self.run_testmax
+            self.generate_reports
             ])
+
+    def do_post_steps(self) -> bool:
+        assert super().do_post_steps()
+        return self.run_testmax()
 
     def run_build(self) -> bool:
         """Perform ATPG build-related steps (1-4):
