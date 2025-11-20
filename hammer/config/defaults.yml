@@ -956,10 +956,10 @@ fsim.inputs:
   strobe_file_name: ""
   campaign_tcl: ""
   output_folder: ""
-  sff_file: ""
-  is_fgen: true
+  standard_fault_format: ""
+  fsim_generate_faults : true
   campaign_simv_daidir: ""
-  fault_type: saf
+  fault_model: saf
   core: ""
 
 fsim.submit:
