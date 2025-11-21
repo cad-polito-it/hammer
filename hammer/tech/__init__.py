@@ -1608,6 +1608,25 @@ class LibraryFilterHolder:
             paths_func=paths_func
         )
 
+    @staticmethod
+    def technology_filter(lib: Library) -> bool:
+        """
+        Pre-filter function to select only technology-provided libraries.
+        Checks if the library has provides field with lib_type == "technology".
+
+        This is designed to be used as an extra_pre_filter with read_libs():
+            read_libs([verilog_sim_filter], ...,
+                     extra_pre_filters=[filters.technology_filter])
+
+        :param lib: Library to check
+        :return: True if this library is technology-provided, False otherwise.
+        """
+        if lib.provides is not None:
+            for provided in lib.provides:
+                if provided.lib_type is not None and provided.lib_type == "technology":
+                    return True
+        return False
+
 
 # Holds the list of pre-implemented filters.
 # Access it like hammer_tech.filters.lef_filter

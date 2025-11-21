@@ -40,6 +40,8 @@ class DC(HammerSynthesisTool, SynopsysTool):
         # DC does not
         self.output_sdc = self.post_synth_sdc
         self.sdf_file = self.output_sdf_path
+        output_spf = os.path.join(self.result_dir, self.top_module + "_test_protocol.spf")
+        self.spf_file = output_spf
         if self.ran_write_outputs:
             if not os.path.isfile(mapped_v):
                 raise ValueError("Output mapped verilog %s not found" % (mapped_v)) # better error?
@@ -49,6 +51,9 @@ class DC(HammerSynthesisTool, SynopsysTool):
 
             if not os.path.isfile(self.output_sdf_path):
                 self.logger.warning("Output SDF %s not found" % (self.output_sdf_path))
+
+            if not os.path.isfile(self.spf_file):
+                self.logger.warning("Output SPF %s not found" % (self.spf_file))
         else:
             self.logger.info("Did not run write_outputs")
 
@@ -90,6 +95,7 @@ class DC(HammerSynthesisTool, SynopsysTool):
         outputs["synthesis.outputs.seq_cells"] = self.output_seq_cells
         outputs["synthesis.outputs.all_regs"] = self.output_all_regs
         outputs["synthesis.outputs.sdf_file"] = self.output_sdf_path
+        outputs["synthesis.outputs.spf_file"] = self.spf_file
         return outputs
 
     @property

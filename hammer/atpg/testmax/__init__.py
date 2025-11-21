@@ -7,7 +7,8 @@ from hammer.common.synopsys import SynopsysTool
 from hammer.logging import HammerVLSILogging
 
 from typing import Dict, List
-
+import hammer.tech
+from hammer.tech import HammerTechnologyUtils
 
 import os
 from multiprocessing import Process
@@ -65,19 +66,18 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.append('# TestMax ATPG build script')
         self.append(f'# top_module = {self.top_module}')
 
-        # 1) Prepare your netlist(s)
-        for f in self.input_files:
-            self.append(f'# prepare netlist: {os.path.abspath(f)}')
+        # 1) Read the netlist(s) + the library
+        verilog = self.verilog + self.technology.read_libs([
+            hammer.tech.filters.verilog_sim_filter
+        ], HammerTechnologyUtils.to_plain_item,
+        extra_pre_filters=[hammer.tech.filters.technology_filter])
+        for v in verilog:
+            if not os.path.exists(v):
+                self.logger.error("Cannot find %s" % v)
+                return False
 
-        # 2) Read the netlist(s)
-        for f in self.input_files:
-            self.append(f'read_netlist {os.path.abspath(f)}')
-
-        # 3) Read the library models
-        # lib_files = self.get_setting('atpg.testmax.library_models')
-        # if lib_files:
-        #     for lf in lib_files:
-        #         self.append(f'read_netlist {os.path.abspath(lf)}')
+        for v in verilog:
+            self.append(f"read_netlist {v}")
 
         self.append("set_build -merge noglobal_tie_propagate")
         self.append("set_build -nodelete_unused_gates")
@@ -86,7 +86,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         # Setting the severity of the rule B5 to warning so the black boxes are automatically set
         self.append("set_rules B5 warning")
         self.append("set_netlist -escape all")
-        # 4) Build the ATPG design model
+        # 3) Build the ATPG design model
         self.append(f'run_build_model {self.top_module}')
 
         return True
@@ -129,10 +129,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.append('# TestMax ATPG flow script')
         self.append(f'# top_module = {self.top_module}')
 
-        # 5) Test DRC is executed earlier (run_drc), so assume model is DRC-clean now.
+        # 4) Test DRC is executed earlier (run_drc), so assume model is DRC-clean now.
         self.append('# test_drc assumed completed in run_drc step')
 
-        # 6) Prepare for ATPG: set options and create fault list
+        # 5) Prepare for ATPG: set options and create fault list
         self.append(f'set_faults -model {self.fault_model}')
         self.append("add_faults -all")
         if self.max_patterns is not None:
@@ -145,7 +145,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         # fault_list_path = faultlist_setting if faultlist_setting is not None else os.path.join(self.run_dir, f'{self.top_module}_faultlist.txt')
         # self.append(f'# create_fault_list -> {fault_list_path}')
 
-        # 7) Run automatic test pattern generation
+        # 6) Run automatic test pattern generation
         generated_pattern_path = None
         if self.create_patterns:
             # TODO
@@ -155,7 +155,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.append(f'# run_atpg -> generate patterns to {generated_pattern_path}')
             self.append(f'run_atpg')
 
-        # 9) Write and save test patterns (already covered by generated_pattern_path)
+        # 7) Write and save test patterns (already covered by generated_pattern_path)
         if generated_pattern_path is not None:
             self.append(f'write_patterns {generated_pattern_path}')
 

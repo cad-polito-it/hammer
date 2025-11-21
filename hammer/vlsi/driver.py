@@ -115,7 +115,7 @@ class HammerDriver:
         self.lvs_tool = None  # type: Optional[HammerLVSTool]
         self.sram_generator_tool = None  # type: Optional[HammerSRAMGeneratorTool]
         self.sim_tool = None  # type: Optional[HammerSimTool]
-        self.atpg_tool = None
+        self.atpg_tool = None # type: Optional[HammerATPGTool]
         self.power_tool = None # type: Optional[HammerPowerTool]
         self.formal_tool = None # type: Optional[HammerFormalTool]
         self.timing_tool = None # type: Optional[HammerTimingTool]
@@ -127,7 +127,7 @@ class HammerDriver:
         self.post_custom_lvs_tool_hooks = []  # type: List[HammerToolHookAction]
         self.post_custom_sram_generator_tool_hooks = []  # type: List[HammerToolHookAction]
         self.post_custom_sim_tool_hooks = []  # type: List[HammerToolHookAction]
-        self.post_custom_atpg_tool_hooks = []
+        self.post_custom_atpg_tool_hooks = [] # type: List[HammerToolHookAction]
         self.post_custom_power_tool_hooks = [] # type: List[HammerToolHookAction]
         self.post_custom_formal_tool_hooks = [] # type: List[HammerToolHookAction]
         self.post_custom_timing_tool_hooks = [] # type: List[HammerToolHookAction]
@@ -1049,6 +1049,7 @@ class HammerDriver:
                 "atpg.inputs.all_regs": output_dict.get("synthesis.outputs.all_regs", None),
                 "atpg.inputs.seq_cells": output_dict.get("synthesis.outputs.seq_cells", None),
                 "atpg.inputs.post_synth_sdc": output_dict.get("synthesis.outputs.sdc", None),
+                "atpg.inputs.spf_file": output_dict["synthesis.outputs.spf_file"],
                 "atpg.inputs.level": 'syn',
                 "vlsi.builtins.is_complete": False
             }  # type: Dict[str, Any]

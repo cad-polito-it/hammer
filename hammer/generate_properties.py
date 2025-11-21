@@ -124,7 +124,9 @@ def main(args) -> int:
                                         InterfaceVar("output_seq_cells", "str",
                                                      "path to output collection of all sequential standard cells in design"),
                                         InterfaceVar("sdf_file", "str",
-                                                     "output SDF file to be read for timing annotated gate level sims")
+                                                     "output SDF file to be read for timing annotated gate level sims"),
+                                        InterfaceVar("spf_file", "str",
+                                                     "output SPF file to be read for DRC by the ATPG tool")
                                         # TODO: model CAD junk
                                     ]
                                     )
