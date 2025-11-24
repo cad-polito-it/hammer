@@ -953,13 +953,21 @@ fsim.inputs:
   # type: bool
 
   campaign_tb_dut: ""
+
   strobe_file_name: ""
+  
   campaign_tcl: ""
+  
   output_folder: ""
-  standard_fault_format: ""
+  
   fsim_generate_faults : true
+  
+  standard_fault_format: ""
+  
   campaign_simv_daidir: ""
+  
   fault_model: saf
+  
   core: ""
 
 fsim.submit:
