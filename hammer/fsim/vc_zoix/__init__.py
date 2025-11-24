@@ -625,7 +625,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             "-full64",
             "-daidir " + campaign_simv_daidir,
             "-sff " + self.standard_fault_format,
-            "-report " + self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
+            "-report " + os.path.join(self.run_dir, self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"),
             "-campaign " + self.campaign_tb_dut.split(".")[-1],
             "-collapse off",
             "-overwrite"
@@ -659,7 +659,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         fcc_bin,
         "-full64",
         "-daidir " + campaign_simv_daidir, 
-        "-sff " + self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff",
+        "-sff " + os.path.join(self.run_dir, self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"),
         "-campaign " + self.campaign_tb_dut.split(".")[-1],
         "-overwrite"
         ]
