@@ -237,7 +237,9 @@ class VCS(HammerSimTool, SynopsysTool):
         # Remove the csrc directory (otherwise the simulator will be stale)
         if os.path.exists(os.path.join(self.run_dir, "csrc")):
             shutil.rmtree(os.path.join(self.run_dir, "csrc"))
-
+        
+        args.append("-Mdir={}".format(self.run_dir))
+        
         # Generate a simulator
         self.run_executable(args, cwd=self.run_dir)
 
