@@ -174,6 +174,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             for benchmark in self.benchmarks:
                 self.output_saifs.append(os.path.join(self.benchmark_run_dir(benchmark), "ucli.saif"))
         benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
+        if not os.path.exists(os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name)):
+            os.makedirs(os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name))
         if os.path.exists(self.strobe_file_name) == False:
             self.strobe_file_name = os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name, "strobe.sv")
             os.makedirs(os.path.dirname(self.strobe_file_name), exist_ok=True)
@@ -702,8 +704,9 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         
         os.makedirs(self.report_folder, exist_ok=True)
         benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
-        subprocess.run("cp " +  os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name) + "/*.rpt " + self.report_folder, shell=True, check=True)
-        subprocess.run("cp " +  os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name) + "/*.sff " + self.report_folder, shell=True, check=True)
+        subprocess.run("cp " +  os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name) + "/*.rpt " + self.report_folder, shell=True, check=False)
+        subprocess.run("cp " +  os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name) + "/*.sff " + self.report_folder, shell=True, check=False)
+        subprocess.run("cp " +  self.run_dir + "/*.sff " + self.report_folder, shell=True, check=True)
 
         # ToDo: change with non-static naming which can be changed in the fsim.tcl file using the fsim.mk
         return os.path.exists(os.path.join(self.report_folder, "fsim_out.rpt"))
