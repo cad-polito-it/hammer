@@ -233,6 +233,18 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             self.standard_fault_format = os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name, "gen_" + self.fault_model + "_" + self.output_tb_dut.split(".")[-1] + ".sff")
             os.makedirs(os.path.dirname(self.standard_fault_format), exist_ok=True)
             with open(self.standard_fault_format, "w") as f:
+                f.write("# Weights\n")
+                f.write("Coverage\n")
+                f.write("{\n")
+                f.write("        Weights\n")
+                f.write("        {\n")
+                f.write("                PD=0.5;\n")
+                f.write("                PT=1.0;\n")
+                f.write("        }\n")
+                f.write("        \"Test Coverage\" = \"(DD * DD_weight + DT * DT_weight + DE * DE_weight + DF * DF_weight + PD * PD_weight + PT * PT_weight)/(Total)\";\n")
+                f.write("        \"Fault Coverage\" = \"(DD * DD_weight + DT * DT_weight + DE * DE_weight + DF * DF_weight + PD * PD_weight + PT * PT_weight)/(Total + UB + UI + UR + UT + UU + UO)\";\n") 
+                f.write("}\n")
+                f.write("\n")
                 f.write("# Set fault generation constraints\n")
                 f.write("FaultGenerate\n")
                 f.write("{\n")
@@ -241,8 +253,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 if (self.fault_model == "tdf"):
                     f.write("    NA [R,F] {PORT \"" + self.output_tb_dut + ".**\" }\n")
                 if (self.fault_model == "tf"):
-                    f.write("    Timing (\"clock\", CycleTime 2ns)\n")
-                    f.write("    UseTiming(\"clock\")\n")
+                    f.write("    Timing (\"clock_uncore\", CycleTime 2ns)\n")
+                    f.write("    UseTiming(\"clock_uncore\")\n")
                     f.write("    NA ~ (10) {PORT \"" + self.output_tb_dut + ".**\" }\n")
                 f.write("}\n")
         self.report_folder = ""
