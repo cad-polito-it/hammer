@@ -105,6 +105,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                         # e.g., "my/results/MyCoreConfig/_sa1_/fft"
                         self.report_folder = os.path.join(self.output_folder,
                                                     self.core, 
+                                                    self.output_level,
                                                     self.fault_model, 
                                                     benchmark_name)
 
