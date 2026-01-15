@@ -97,13 +97,10 @@ class VCS(HammerSimTool, SynopsysTool):
 
         with open(self.access_tab_file_path, "w") as f:
             with open(abspath_seq_cells) as seq_file:
-                cells = {}
                 seq_json = json.load(seq_file)
                 assert isinstance(seq_json, List), "list of all sequential cells should be a json list of strings not {}".format(type(seq_json))
                 for cell in seq_json:
-                    if cell not in cells:
-                        f.write("acc:=wn: {cell_name}.*\n".format(cell_name=cell))
-                        cells[cell] = True
+                    f.write("acc=wn:{cell_name}\n".format(cell_name=cell))
 
         abspath_all_regs = os.path.join(os.getcwd(), self.all_regs)
         if not os.path.isfile(abspath_all_regs):
@@ -113,14 +110,15 @@ class VCS(HammerSimTool, SynopsysTool):
             with open(abspath_all_regs) as reg_file:
                 reg_json = json.load(reg_file)
                 assert isinstance(reg_json, List), "list of all sequential cells should be a json list of dictionaries from string to string not {}".format(type(reg_json))
-                f.write("force {TestDriver.testHarness.chiptop0.test_si} 0\n")
-                f.write("force {TestDriver.testHarness.chiptop0.test_se} 0\n")
-                f.write("force {TestDriver.testHarness.chiptop0.test_mode} 0\n")
+                # If the DfT has been inserted
+                if self.get_setting("synthesis.dc.dft_insertion"):
+                    f.write("force {"+ tb_prefix + ".test_se} 0\n")
+                    f.write("force {"+ tb_prefix + ".test_mode} 0\n")
                 for reg in sorted(reg_json, key=lambda r: len(r["path"])): # TODO: This is a workaround for a bug in P-2019.06
                     path = reg["path"]
                     path = '.'.join(path.split('/'))
                     pin = reg["pin"]
-                    f.write("force -deposit {" + tb_prefix + "." + path + "." + pin + "} " + str(force_val) + "\n")
+                    f.write("force -deposit {" + tb_prefix + "." + path + " ." + pin + "} " + str(force_val) + "\n")
 
         return True
 
