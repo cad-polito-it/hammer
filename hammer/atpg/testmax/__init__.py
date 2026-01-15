@@ -32,6 +32,22 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.spf_file = self.get_setting('atpg.inputs.spf_file')
         return True
 
+
+    # Override to create folders for the specified fault model
+    @property
+    def result_dir(self) -> str:
+        base_result_dir = super().result_dir
+        specific_dir = os.path.join(base_result_dir, self.fault_model)
+        os.makedirs(specific_dir, exist_ok=True)
+        return specific_dir
+
+    @property
+    def report_dir(self) -> str:
+        base_report_dir = super().report_dir
+        specific_dir = os.path.join(base_report_dir, self.fault_model)
+        os.makedirs(specific_dir, exist_ok=True)
+        return specific_dir
+
     @property
     def steps(self) -> List[HammerToolStep]:
         return self.make_steps_from_methods([
@@ -151,7 +167,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             # TODO
             # generated_pattern_path = self.get_setting('atpg.testmax.generated_patterns')
             if generated_pattern_path is None:
-                generated_pattern_path = os.path.join(self.run_dir, f'{self.top_module}_patterns')
+                generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
             self.append(f'# run_atpg -> generate patterns to {generated_pattern_path}')
             self.append(f'run_atpg')
 
