@@ -766,7 +766,7 @@ atpg.inputs:
   # type: str
 
   create_patterns: True
-  fault_model: "stuck"
+  fault_model: "saf"
   max_patterns: null
   spf_file: ""
 
