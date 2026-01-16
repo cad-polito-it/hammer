@@ -275,7 +275,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         # These intentionally break the dependency graph, but allow the flexibility to rerun a step after changing a config.
         # Hammer doesn't know what settings impact synthesis only, e.g., so these are for power-users who "know better."
         # The HAMMER_EXTRA_ARGS variable allows patching in of new configurations with -p or using --to_step or --from_step, for example.
-        .PHONY: redo-sim-rtl{suffix} redo-sim-rtl-to-power{suffix} redo-syn{suffix} redo-syn-to-sim{suffix} redo-syn-to-power{suffix} redo-sim-syn{suffix} redo-sim-syn-to-power{suffix} redo-syn-to-par{suffix} redo-par{suffix} redo-par-to-sim{suffix} redo-sim-par{suffix} redo-sim-par-to-power{suffix} redo-par-to-power{suffix} redo-power-par{suffix} redo-par-to-drc{suffix} redo-drc{suffix} redo-par-to-lvs{suffix} redo-lvs{suffix} redo-syn-to-formal{suffix} redo-formal-syn{suffix} redo-par-to-formal{suffix} redo-formal-par{suffix} redo-syn-to-timing{suffix} redo-timing-syn{suffix} redo-par-to-timing{suffix} redo-timing-par{suffix}
+        .PHONY: redo-sim-rtl{suffix} redo-sim-rtl-to-power{suffix} redo-atpg-syn{suffix} redo-syn{suffix} redo-syn-to-sim{suffix} redo-syn-to-power{suffix} redo-sim-syn{suffix} redo-sim-syn-to-power{suffix} redo-syn-to-par{suffix} redo-par{suffix} redo-par-to-sim{suffix} redo-sim-par{suffix} redo-sim-par-to-power{suffix} redo-par-to-power{suffix} redo-power-par{suffix} redo-par-to-drc{suffix} redo-drc{suffix} redo-par-to-lvs{suffix} redo-lvs{suffix} redo-syn-to-formal{suffix} redo-formal-syn{suffix} redo-par-to-formal{suffix} redo-formal-par{suffix} redo-syn-to-timing{suffix} redo-timing-syn{suffix} redo-par-to-timing{suffix} redo-timing-par{suffix}
 
         redo-sim-rtl{suffix}:
         \t$(HAMMER_EXEC) {env_confs} {p_sim_rtl_in} $(HAMMER_EXTRA_ARGS) --sim_rundir {sim_rtl_run_dir} --obj_dir {obj_dir} sim{suffix}
@@ -285,6 +285,9 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
 
         redo-power-rtl{suffix}:
         \t$(HAMMER_EXEC) {env_confs} -p {power_sim_rtl_in} $(HAMMER_EXTRA_ARGS) --power_rundir {power_rtl_run_dir} --obj_dir {obj_dir} power{suffix}
+
+        redo-atpg-syn{suffix}:
+        \t$(HAMMER_EXEC) {env_confs} -p {atpg_syn_in} $(HAMMER_EXTRA_ARGS) --atpg_rundir {atpg_syn_run_dir} --obj_dir {obj_dir} atpg{suffix}
 
         redo-syn{suffix}:
         \t$(HAMMER_EXEC) {env_confs} {p_syn_in} $(HAMMER_EXTRA_ARGS) --obj_dir {obj_dir} syn{suffix}
