@@ -312,6 +312,7 @@ endmodule
 """.format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name_v,
            RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
             elif params.family == "3R2mW":
+                mask_width = 8
                 # Generate timing checks for all 5 ports (3 Read, 2 Write)
                 specify = ""
                 # Add checks for Read Ports 0, 1, 2 and Write Ports 0, 1
@@ -340,7 +341,8 @@ module {NAME} (
   input                  W0_clk,  W1_clk,
   input                  W0_en,   W1_en,
   input  [{WORDLENGTH}-1:0] W0_data, W1_data,
-  input                  W0_wmask, W1_wmask
+  input  [{MASKLENGTH}-1:0] W0_wmask, 
+  input  [{MASKLENGTH}-1:0] W1_wmask
 );
 
   reg [{WORDLENGTH}-1:0] ram [0:{NUMWORDS}-1];
@@ -358,11 +360,11 @@ module {NAME} (
 
   // Write Logic
   always @(posedge W0_clk) begin
-    if (W0_en & W0_wmask) ram[W0_addr] <= W0_data;
+    ram[W0_addr][(W0_wmask * 8) +: 8] <= W0_data[(W0_wmask * 8) +: 8];
   end
 
   always @(posedge W1_clk) begin
-    if (W1_en & W1_wmask) ram[W1_addr] <= W1_data;
+    ram[W1_addr][(W1_wmask * 8) +: 8] <= W1_data[(W1_wmask * 8) +: 8];
   end
 
 `ifndef SYNTHESIS
@@ -382,6 +384,7 @@ endmodule
            WORDLENGTH=params.width, 
            NAME=sram_name_v,
            RAND_WIDTH=math.ceil(params.width / 32), 
+           MASKLENGTH=mask_width,
            specify=specify))
         return ExtraLibrary(
           prefix=None, 
