@@ -769,7 +769,7 @@ atpg.inputs:
   fault_model: "saf"
   max_patterns: null
   spf_file: ""
-
+  patterns_file: null
   sdf_file: null # SDF File
   # type: str
   # Standard Delay Format file for use in timing annotated sims

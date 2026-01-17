@@ -25,6 +25,17 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.output_level = self.get_setting("atpg.inputs.level")
         self.output_patterns = []
         self.create_patterns = self.get_setting('atpg.inputs.create_patterns')
+        self.patterns_file = self.get_setting('atpg.inputs.patterns_file')
+        # If the user specified a name for the patterns, the generation is skipped and only fault simulation is performed
+        if self.patterns_file != None:
+            self.create_patterns = False
+        # Track whether we actually invoked fault simulation / generation
+        # in this run.
+        self.did_fault_sim = False
+        self.did_generate_patterns = False
+        # Track the origin of the patterns used for fault simulation
+        # ("generated" vs "user").
+        self.patterns_source_kind = ""
         self.fault_model = self.get_setting('atpg.inputs.fault_model')
         self.max_patterns = self.get_setting('atpg.inputs.max_patterns')
         self.spf_file = self.get_setting('atpg.inputs.spf_file')
@@ -61,7 +72,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.run_build,
             self.run_drc,
             self.run_atpg,
-            self.generate_reports
+            self.generate_generation_reports,
+            self.run_fault_sim,
+            self.generate_fault_sim_reports
             ])
 
     def do_post_steps(self) -> bool:
@@ -71,10 +84,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
     def run_build(self) -> bool:
         """Perform ATPG build-related steps (1-4):
 
-        1. Prepare netlist(s)
-        2. Read netlist(s)
-        3. Read library models
-        4. Build the ATPG design model
+        1. Read netlist(s)
+        2. Read library models
+        3. Build the ATPG design model
 
         Writes initial TCL lines into `self.output` for consumption by `run_atpg`.
         """
@@ -88,7 +100,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.append('# TestMax ATPG build script')
         self.append(f'# top_module = {self.top_module}')
 
-        # 1) Read the netlist(s) + the library
+        # 1-2) Read the netlist(s) + the library
         verilog = self.verilog + self.technology.read_libs([
             hammer.tech.filters.verilog_sim_filter
         ], HammerTechnologyUtils.to_plain_item,
@@ -117,14 +129,12 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.append(f'run_drc {os.path.abspath(self.spf_file)}')
         return True
 
+    #TODO: incremental ATPG starting from a previous fault list
     def run_atpg(self) -> bool:
         """Run the ATPG stage following the canonical ATPG flow.
-
-        5. (test DRC is run in the separate `run_drc` step)
-        6. Prepare design for ATPG, set up fault list and options
-        7. Run ATPG
-        8. Analyze ATPG output and review coverage
-        9. Write/save test patterns
+        4. Prepare design for ATPG, set up fault list and options
+        5. Run ATPG for pattern generation or fault simulation
+            5a. Write/save test patterns in case of generation
 
         This method builds `self.output` (TCL/script lines) which `run_testmax`
         writes and passes to the TestMax binary.
@@ -151,73 +161,127 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.append('# TestMax ATPG flow script')
         self.append(f'# top_module = {self.top_module}')
 
-        # 4) Test DRC is executed earlier (run_drc), so assume model is DRC-clean now.
-        self.append('# test_drc assumed completed in run_drc step')
-
-        # 5) Prepare for ATPG: set options and create fault list
+        # 4) Prepare for ATPG: set options and create fault list
         self.append(f'set_faults -model {self.atpg_fault_model}')
         self.append("add_nofaults -module \"fakeram.*\"")
         self.append("add_faults -all")
-        if self.max_patterns is not None:
-            self.append(f'set_atpg -patterns {self.max_patterns}')
+
         # if self.pattern_format is not None:
         #     self.append(f'# set_pattern_format {self.pattern_format}')
 
-        # Create a default fault list placeholder
-        # faultlist_setting = self.get_setting('atpg.testmax.faultlist')
-        # fault_list_path = faultlist_setting if faultlist_setting is not None else os.path.join(self.run_dir, f'{self.top_module}_faultlist.txt')
-        # self.append(f'# create_fault_list -> {fault_list_path}')
-
-        # 6) Run automatic test pattern generation
-        generated_pattern_path = None
+        # 5) Run automatic test pattern generation
         if self.create_patterns:
-            # TODO
-            # generated_pattern_path = self.get_setting('atpg.testmax.generated_patterns')
-            if generated_pattern_path is None:
-                generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
+            if self.max_patterns is not None:
+                self.append(f'set_atpg -patterns {self.max_patterns}')
+            generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
+            generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_testbench')
             self.append(f'# run_atpg -> generate patterns to {generated_pattern_path}')
             self.append(f'run_atpg')
 
-        # 7) Write and save test patterns (already covered by generated_pattern_path)
-        if generated_pattern_path is not None:
+            # 5a) Write and save test patterns (already covered by generated_pattern_path)
             self.append(f'write_patterns {generated_pattern_path} -internal -format stil -replace')
 
-        # TODO
-        # Fault-simulation: either on an existing pattern set or on generated patterns
-        # existing_patterns = self.fault_simulate_existing
-        # if existing_patterns:
-        #     self.append(f'# fault_simulate existing patterns: {existing_patterns} -> {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
-        #     self.append(f'# TODO: invoke TestMax fault-sim on {existing_patterns} and write faults to {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
-        # elif generated_pattern_path and self.fault_simulate_generated:
-        #     self.append(f'# fault_simulate generated patterns: {generated_pattern_path} -> {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
-        #     self.append(f'# TODO: invoke TestMax fault-sim on {generated_pattern_path} and write faults to {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
+            # TODO: fixing the write_testbench step because it works only with gui at the moment
+            # self.append(f'write_testbench -input {generated_pattern_path} -output {generated_testbench_path} -replace')
 
-        # TODO
-        # Optionally print/export the fault list
-        # if self.print_fault_list:
-        #     self.append(f'# print_fault_list {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
-        #     self.append(f'write_faults {self.output_fault_list or os.path.join(self.run_dir, f"{self.top_module}_faults.txt")}')
-
-        # Record outputs for downstream consumers (pattern files)
-        if generated_pattern_path is not None:
             self.output_patterns = [generated_pattern_path]
-        else:
-            self.output_patterns = []
 
-        # Ensure fault list output path is set (downstream can check existence)
-        #self.output_fault_list = self.output_fault_list or os.path.join(self.run_dir, f'{self.top_module}_faults.txt')
+            self.did_generate_patterns = True
+            self.patterns_source_kind = "generated"
 
         return True
 
-    def generate_reports(self) -> bool:
-        report_faults_path = os.path.join(self.report_dir, f'{self.top_module}_faults.fau')
+    def run_fault_sim(self) -> bool:
+        """Run fault simulation either on generated patterns (default) or on
+        a user-specified pattern file (PATTERNS_FILE=...)."""
+
+        log = HammerVLSILogging.context("atpg.fault_sim")
+
+        generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
+        user_patterns_file = self.patterns_file
+
+        patterns_source = ""
+
+        if user_patterns_file:
+            # Mode 2: only fault simulation of an explicit user pattern file.
+            patterns_source = os.path.abspath(user_patterns_file)
+            self.patterns_source_kind = "user"
+            log.debug(f"Fault simulation on user pattern file: {patterns_source}")
+        elif self.did_generate_patterns == True:
+            # Mode 1: fault simulation of freshly generated patterns.
+            patterns_source = generated_pattern_path
+            self.patterns_source_kind = "generated"
+            log.debug(f"Fault simulation on generated pattern set: {patterns_source}")
+
+        if patterns_source:
+            self.append(f'# fault simulation using {self.patterns_source_kind} patterns from {patterns_source}')
+            self.append("remove_faults -all")
+            self.append("add_nofaults -module \"fakeram.*\"")
+            self.append("add_faults -all")
+            self.append(f'set_patterns -external {patterns_source}')
+            self.append('run_fault_sim')
+            self.did_fault_sim = True
+
+        return True
+
+    def generate_generation_reports(self) -> bool:
+        """Generate reports after pattern generation (no fault-sim yet).
+
+        Only runs when patterns have been generated in this flow and no
+        user-specified pattern file was used.
+        """
+        return self._generate_reports(mode="generation")
+
+    def generate_fault_sim_reports(self) -> bool:
+        """Generate reports after fault simulation.
+
+        Uses different suffixes to distinguish between:
+        - fault simulation of generated patterns (no suffix)
+        - fault simulation of a user-specified pattern file ("_user")
+        """
+        return self._generate_reports(mode="fault_sim")
+
+    def _generate_reports(self, mode: str) -> bool:
+        """Internal helper to generate reports.
+
+        mode = "generation"  -> use generation directory, no suffix
+        mode = "fault_sim"   -> use fault_sim directory, optional "_user" suffix
+        """
+
+        if mode == "generation":
+            if not getattr(self, "did_generate_patterns", False):
+                return True
+
+            base_dir = os.path.join(self.report_dir, "generation")
+            suffix = ""
+        elif mode == "fault_sim":
+            if not getattr(self, "did_fault_sim", False):
+                return True
+
+            base_dir = os.path.join(self.report_dir, "fault_sim")
+            kind = getattr(self, "patterns_source_kind", "")
+            suffix = "_user" if kind == "user" else ""
+        else:
+            # Unknown mode: do nothing
+            return True
+
+        os.makedirs(base_dir, exist_ok=True)
+
+        report_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults.fau')
         self.append(f"report_faults -all > {report_faults_path}")
 
-        report_au_faults_path = os.path.join(self.report_dir, f'{self.top_module}_au_faults.fau')
+        report_faults_per_clock_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_per_clock_domain.fau')
+        self.append(f"report_faults -all -per_clock_domain > {report_faults_per_clock_path}")
+
+        report_au_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_au_faults.fau')
         self.append(f"report_faults -class AU > {report_au_faults_path}")
 
-        atpg_untestable_path = os.path.join(self.report_dir, f'{self.top_module}_au_analysis.rpt')
+        atpg_untestable_path = os.path.join(base_dir, f'{self.top_module}{suffix}_au_analysis.rpt')
         self.append(f"analyze_faults -class AU > {atpg_untestable_path}")
+
+        report_faults_summary = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_summary.rpt')
+        self.append(f"report_faults -summary > {report_faults_summary}")
+
         return True
 
     @property
