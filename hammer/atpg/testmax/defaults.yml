@@ -1,6 +1,21 @@
 # Default settings for simulation using TestMax
 atpg.testmax:
 
+  set_drc_args: [] # Args for the set_drc command
+  # type: List[str]
+
+  run_drc_args: [] # Args for the run_drc command
+  # type: List[str]
+
+  set_atpg_args: [] # Args for the set_atpg command
+  # type: List[str]
+
+  run_atpg_args: [] # Args for the run_atpg command
+  # type: List[str]
+
+  run_fault_sim_args: [] # Args for the run_fault_sim command
+  # type: List[str]
+
   # Location of the binary.
   testmax_bin: "${synopsys.testmax_home}/${atpg.testmax.version}/bin/tmax2"
   testmax_bin_meta: lazysubst

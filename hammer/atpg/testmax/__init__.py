@@ -37,7 +37,6 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         # ("generated" vs "user").
         self.patterns_source_kind = ""
         self.fault_model = self.get_setting('atpg.inputs.fault_model')
-        self.max_patterns = self.get_setting('atpg.inputs.max_patterns')
         self.spf_file = self.get_setting('atpg.inputs.spf_file')
         return True
 
@@ -126,7 +125,31 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         return True
 
     def run_drc(self) -> bool:
-        self.append(f'run_drc {os.path.abspath(self.spf_file)}')
+        """Run TestMAX DRC on the SPF produced after synthesis.
+
+        If present, include optional arguments from the Hammer config:
+        - atpg.testmax.set_drc_args: list of extra arguments for the "set_drc" command
+        - atpg.testmax.run_drc_args: list of extra arguments for the "run_drc" command
+        """
+
+        # Optional "set_drc" arguments (can be an empty list or contain empty strings).
+        set_drc_args = self.get_setting("atpg.testmax.set_drc_args", nullvalue=[])  # type: List[str]
+        set_drc_args_str = " ".join([a for a in set_drc_args if a])
+
+        if set_drc_args_str:
+            # Example: set_drc -my_switch on
+            self.append(f"set_drc {set_drc_args_str}")
+
+        # Optional extra args to "run_drc".
+        run_drc_args = self.get_setting("atpg.testmax.run_drc_args", nullvalue=[])  # type: List[str]
+        run_drc_args_str = " ".join([a for a in run_drc_args if a])
+
+        spf_path = os.path.abspath(self.spf_file) if self.spf_file is not None else ""
+        if run_drc_args_str:
+            # Example: run_drc -my_option value <spf>
+            self.append(f"run_drc {spf_path} {run_drc_args_str}")
+        else:
+            self.append(f"run_drc {spf_path}")
         return True
 
     #TODO: incremental ATPG starting from a previous fault list
@@ -143,8 +166,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         # Announce configuration
         log.debug(
-            f"ATPG create_patterns={self.create_patterns}, fault_model={self.fault_model}, \
-             max_patterns={self.max_patterns}, "
+            f"ATPG create_patterns={self.create_patterns}, fault_model={self.fault_model} "
         )
 
         # Ensure a build-stage has initialized the TCL output buffer. If not,
@@ -171,12 +193,24 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         # 5) Run automatic test pattern generation
         if self.create_patterns:
-            if self.max_patterns is not None:
-                self.append(f'set_atpg -patterns {self.max_patterns}')
+            set_atpg_args = self.get_setting("atpg.testmax.set_atpg_args", nullvalue=[])
+            set_atpg_args_str = " ".join([a for a in set_atpg_args if a])
+
+            if set_atpg_args_str:
+                self.append(f'set_atpg -patterns {set_atpg_args_str}')
+
             generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
             generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_testbench')
             self.append(f'# run_atpg -> generate patterns to {generated_pattern_path}')
-            self.append(f'run_atpg')
+
+            # Optional extra args to "run_atpg" from the Hammer config.
+            run_atpg_args = self.get_setting("atpg.testmax.run_atpg_args", nullvalue=[])  # type: List[str]
+            run_atpg_args_str = " ".join([a for a in run_atpg_args if a])
+
+            if run_atpg_args_str:
+                self.append(f'run_atpg {run_atpg_args_str}')
+            else:
+                self.append('run_atpg')
 
             # 5a) Write and save test patterns (already covered by generated_pattern_path)
             self.append(f'write_patterns {generated_pattern_path} -internal -format stil -replace')
@@ -219,7 +253,15 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.append("add_nofaults -module \"fakeram.*\"")
             self.append("add_faults -all")
             self.append(f'set_patterns -external {patterns_source}')
-            self.append('run_fault_sim')
+
+            # Optional extra args to "run_fault_sim" from the Hammer config.
+            run_fault_sim_args = self.get_setting("atpg.testmax.run_fault_sim_args", nullvalue=[])  # type: List[str]
+            run_fault_sim_args_str = " ".join([a for a in run_fault_sim_args if a])
+
+            if run_fault_sim_args_str:
+                self.append(f'run_fault_sim {run_fault_sim_args_str}')
+            else:
+                self.append('run_fault_sim')
             self.did_fault_sim = True
 
         return True

@@ -737,14 +737,6 @@ atpg.inputs:
   input_files: [] # Input files for simulation including verilog sources, testharness/testbench, etc.
   # type: List[str]
 
-  options: [] # Permissive options for the simulator generation
-  # These options will appear as plain string option additions when generating the simulation executable
-  # type: List[str]
-
-  defines: [] # Define options passed when generating the simulation executable
-  # For example: when passed to VCS, each define in the input list will be added as "+define+" + {define}
-  # type: List[str]
-
   tb_dut: "dut" # Hierarchical path to the top level instance of the "dut" from the testbench.
   # For example, this will be used to generate the hierarchical path through the testbench and DUT to each sequential element in the design.
   # TODO(johnwright) automate this by parsing the TB verilog?

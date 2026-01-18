@@ -447,14 +447,6 @@ atpg.inputs:
   # type: list[str]
   input_files: list[str]
 
-  # Permissive options for the simulator generation
-  # type: list[str]
-  options: list[str]
-
-  # Define options passed when generating the simulation executable
-  # type: list[str]
-  defines: list[str]
-
   # Hierarchical path to the top level instance of the "dut" from the testbench.
   # type: str
   tb_dut: str
