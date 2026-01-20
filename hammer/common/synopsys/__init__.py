@@ -220,17 +220,23 @@ puts $write_regs_ir "\\["
 
 set len_regs [sizeof_collection [all_registers -output_pins -edge_triggered]]
 
-set index 0
+set regs_list [list]
 foreach_in_collection reg [all_registers -output_pins -edge_triggered] {
+    # Enforce the dump of only connected output ports of registers
+    set size_connected [sizeof_collection [all_connected $reg]]
+    if {$size_connected > 0} {
     set name [get_attribute $reg full_name]
-    if { $index == $len_regs - 1 } {
-        puts $write_regs_ir "   \\"$name\\" "
-    } else {
-        puts $write_regs_ir "   \\"$name\\", "
+    lappend regs_list [get_attribute $reg full_name]
     }
-    incr index
 }
 
+# Join list elements with a comma and a newline for clean formatting
+set json_content ""
+foreach name $regs_list {
+    lappend json_content "  \\"$name\\""
+}
+
+puts $write_regs_ir [join $json_content ",\\n"]
 puts $write_regs_ir "\\]"
 
 close $write_regs_ir

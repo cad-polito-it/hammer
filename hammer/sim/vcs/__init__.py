@@ -112,13 +112,13 @@ class VCS(HammerSimTool, SynopsysTool):
                 assert isinstance(reg_json, List), "list of all sequential cells should be a json list of dictionaries from string to string not {}".format(type(reg_json))
                 # If the DfT has been inserted
                 if self.get_setting("synthesis.dc.dft_insertion"):
-                    f.write("force {"+ tb_prefix + ".test_se} 0\n")
-                    f.write("force {"+ tb_prefix + ".test_mode} 0\n")
+                    f.write("force "+ tb_prefix + ".test_se 0\n")
+                    f.write("force "+ tb_prefix + ".test_mode 0\n")
                 for reg in sorted(reg_json, key=lambda r: len(r["path"])): # TODO: This is a workaround for a bug in P-2019.06
                     path = reg["path"]
                     path = '.'.join(path.split('/'))
                     pin = reg["pin"]
-                    f.write("force -deposit {" + tb_prefix + "." + path + " ." + pin + "} " + str(force_val) + "\n")
+                    f.write("force -deposit {" + tb_prefix + "." + path + "." + pin + "} " + str(force_val) + "\n")
 
         return True
 
@@ -138,6 +138,17 @@ class VCS(HammerSimTool, SynopsysTool):
             if not os.path.exists(v):
                 self.logger.error("Cannot find %s" % v)
                 return False
+            
+        # Grab the ChipTop RTL file and remove from the input files
+        # used for the synthesis (just to be sure to elaborate the correct ChipTop module and submodules)
+        if self.level.is_gatelevel():
+            rtl_files_to_remove = []
+            for v_file in abspath_input_files:
+                if v_file in self.get_setting("sim.inputs.syn_input_files"):
+                    rtl_files_to_remove.append(v_file)
+            if len(rtl_files_to_remove) > 0:
+                for file_to_remove in rtl_files_to_remove:
+                    abspath_input_files.remove(file_to_remove)
 
         top_module = self.top_module
         compiler_cc_opts = self.get_setting("sim.inputs.compiler_cc_opts", [])
