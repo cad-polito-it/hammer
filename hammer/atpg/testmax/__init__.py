@@ -197,11 +197,11 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             set_atpg_args_str = " ".join([a for a in set_atpg_args if a])
 
             if set_atpg_args_str:
-                self.append(f'set_atpg -patterns {set_atpg_args_str}')
+                self.append(f'set_atpg {set_atpg_args_str}')
 
-            generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
-            generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_testbench')
-            self.append(f'# run_atpg -> generate patterns to {generated_pattern_path}')
+            self.generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
+            self.generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_testbench')
+            self.append(f'# run_atpg -> generate patterns to {self.generated_pattern_path}')
 
             # Optional extra args to "run_atpg" from the Hammer config.
             run_atpg_args = self.get_setting("atpg.testmax.run_atpg_args", nullvalue=[])  # type: List[str]
@@ -213,12 +213,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
                 self.append('run_atpg')
 
             # 5a) Write and save test patterns (already covered by generated_pattern_path)
-            self.append(f'write_patterns {generated_pattern_path} -internal -format stil -replace')
+            self.append(f'write_patterns {self.generated_pattern_path} -internal -format stil -replace')
 
-            # TODO: fixing the write_testbench step because it works only with gui at the moment
-            # self.append(f'write_testbench -input {generated_pattern_path} -output {generated_testbench_path} -replace')
-
-            self.output_patterns = [generated_pattern_path]
+            self.output_patterns = [self.generated_pattern_path]
 
             self.did_generate_patterns = True
             self.patterns_source_kind = "generated"
@@ -334,6 +331,21 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             os.environ["PATH"])
         return env
 
+    def generate_testbench(self) -> bool:
+        # Optional extra args to "stil2verilog".
+        stil2verilog_options = self.get_setting("atpg.testmax.stil2verilog_options", nullvalue=[])  # type: List[str]
+
+        # Generate testbench based on the patterns source
+        if self.did_generate_patterns:
+            # Case 1: We generated patterns in this run -> testbench for generated patterns
+            self.write_testbench(self.generated_pattern_path, self.generated_testbench_path, stil2verilog_options)
+        elif self.did_fault_sim and self.patterns_file:
+            # Case 2: Fault simulation only with user-provided patterns -> testbench for user patterns
+            user_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_user_testbench')
+            self.write_testbench(self.patterns_file, user_testbench_path, stil2verilog_options)
+
+        return True
+
     def run_testmax(self) -> bool:
         HammerVLSILogging.enable_colour = False
         HammerVLSILogging.enable_tag = False
@@ -353,6 +365,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             _f.write('\nexit')
         args = [testmax_bin, "-shell", "-64bit", testmax_tcl]
         lines = self.run_executable(args, self.run_dir)
+        self.generate_testbench()
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
         return True

@@ -16,6 +16,9 @@ atpg.testmax:
   run_fault_sim_args: [] # Args for the run_fault_sim command
   # type: List[str]
 
+  atpg.testmax.stil2verilog_options: [] # Optional args for the stil2verilog command
+  # type: List[str]
+
   # Location of the binary.
   testmax_bin: "${synopsys.testmax_home}/${atpg.testmax.version}/bin/tmax2"
   testmax_bin_meta: lazysubst

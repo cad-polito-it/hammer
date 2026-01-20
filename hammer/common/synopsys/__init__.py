@@ -279,3 +279,21 @@ close $write_regs_ir
             f.seek(0) # Move to beginning to rewrite file
             json.dump(reg_paths, f, indent=2) # Elide the truncation because we are always increasing file size
         return True
+
+    def write_testbench(self, stil_path: str, testbench_name: str, options: Optional[List[str]] = []) -> bool:
+        """
+        Generate a Verilog testbench from a STIL file using stil2verilog.
+
+        :param stil_path: Path to the input STIL file.
+        :param testbench_name: Name of the output Verilog testbench file.
+        :param options: Optional list of additional command-line options for stil2verilog.
+                        If None or empty, no additional options are passed.
+        :return: True if the testbench was generated successfully.
+        """
+        args_testbench = ["stil2verilog", stil_path, testbench_name, "-replace"]
+        if options:
+            args_testbench.extend(options)
+
+        self.run_executable(args_testbench, self.run_dir)
+
+        return True
