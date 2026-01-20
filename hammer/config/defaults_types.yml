@@ -476,6 +476,8 @@ atpg.inputs:
 
   patterns_file: Optional[str]
 
+  faults_file: Optional[str]
+
   spf_file: str
 
 # Specific inputs for the simulation tool.

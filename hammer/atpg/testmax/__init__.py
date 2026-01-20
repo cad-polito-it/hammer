@@ -38,6 +38,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.patterns_source_kind = ""
         self.fault_model = self.get_setting('atpg.inputs.fault_model')
         self.spf_file = self.get_setting('atpg.inputs.spf_file')
+        self.faults_file = self.get_setting('atpg.inputs.faults_file')
         return True
 
     @property
@@ -185,8 +186,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         # 4) Prepare for ATPG: set options and create fault list
         self.append(f'set_faults -model {self.atpg_fault_model}')
-        self.append("add_nofaults -module \"fakeram.*\"")
-        self.append("add_faults -all")
+        self._load_faults()
 
         # if self.pattern_format is not None:
         #     self.append(f'# set_pattern_format {self.pattern_format}')
@@ -247,8 +247,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         if patterns_source:
             self.append(f'# fault simulation using {self.patterns_source_kind} patterns from {patterns_source}')
             self.append("remove_faults -all")
-            self.append("add_nofaults -module \"fakeram.*\"")
-            self.append("add_faults -all")
+            self._load_faults()
             self.append(f'set_patterns -external {patterns_source}')
 
             # Optional extra args to "run_fault_sim" from the Hammer config.
@@ -262,6 +261,18 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.did_fault_sim = True
 
         return True
+
+    def _load_faults(self) -> None:
+        """Append TCL commands to set up the fault list.
+
+        If a faults_file is provided, reads faults from that file.
+        Otherwise, adds all faults (excluding fakeram modules).
+        """
+        self.append("add_nofaults -module \"fakeram.*\"")
+        if self.faults_file:
+            self.append(f'read_faults {self.faults_file} -force_retain_code')
+        else:
+            self.append("add_faults -all")
 
     def generate_generation_reports(self) -> bool:
         """Generate reports after pattern generation (no fault-sim yet).
