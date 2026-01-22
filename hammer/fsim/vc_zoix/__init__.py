@@ -511,6 +511,13 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         force_regs_filename = self.force_regs_file_path
         tb_prefix = self.get_setting("fsim.inputs.tb_dut")
 
+        if self.level.is_gatelevel():
+            find_regs_run_tcl = []
+            find_regs_run_tcl.append("source " + force_regs_filename)
+            find_regs_run_tcl.append("run")
+            find_regs_run_tcl.append("exit")
+            self.write_contents_to_path("\n".join(find_regs_run_tcl), self.run_tcl_path)
+
         for benchmark in self.benchmarks:
             if not os.path.isfile(benchmark):
                 self.logger.error("benchmark not found as expected at {0}".format(benchmark))
@@ -524,6 +531,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             num_threads=int(self.get_setting("vlsi.core.max_threads")) - 1
             args.append("-fgp=num_threads:{threads},num_fsdb_threads:0,allow_less_cores,dynamictoggle".format(threads=max(num_threads,1)))
         args.extend(exec_flags)
+        if self.level.is_gatelevel():
+            args.extend(["-ucli", "-do", self.run_tcl_path])
         args.extend(exec_flags_append)
         for benchmark in self.benchmarks:
             args.append(benchmark)

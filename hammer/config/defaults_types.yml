@@ -611,21 +611,6 @@ fsim.inputs:
   # type: bool
   timing_annotated: bool
 
-  # Settings related to activity file (SAIF) dumping
-  saif:
-    # How Hammer determines whether and when to start or stop the activity dumping
-    # type: str
-    mode: str
-    # The times the simulator should begin and end its dumping of the SAIF file.
-    # type: TimeValue
-    start_time: str
-    # type: TimeValue
-    end_time: str
-    # The raw triggers that will occur when the dump should start and when the dump should end.
-    # type: str
-    start_trigger_raw: str
-    end_trigger_raw: str
-
   # Flags to run with the simulator
   # type: list[str]
   execution_flags: list[str]
@@ -641,6 +626,8 @@ fsim.inputs:
   # Determines whether or not the simulation executable that is generated with the above inputs will actually be executed with the given flags or if the executable will just be generated in the specified run directory.
   # type: bool
   execute_sim: bool
+
+  strobe_module: str # Strobe position if strobe file is not provided
 
 
 
