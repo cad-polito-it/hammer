@@ -169,6 +169,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         self.strobe_file_name = self.get_setting("fsim.inputs.strobe_file_name")
         self.fault_model = self.get_setting("fsim.inputs.fault_model")
         self.core = self.get_setting("fsim.inputs.core")
+        self.get_setting("fsim.strobe_module"):
         if self.get_setting("fsim.inputs.saif.mode") != "none":
             if not self.benchmarks:
                 self.output_saifs.append(os.path.join(self.run_dir, "ucli.saif"))
@@ -190,19 +191,14 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 f.write("integer cmp;\n")
                 f.write("\n")
                 f.write("initial begin\n")
-                f.write("#10;\n")
-                f.write("$display(\"BEFORE ZOIX INJECTION\");\n")
-                f.write("$fs_inject;\n")
-                f.write("$display(\"ZOIX INJECTION\");\n")
+                f.write("   #10;\n")
+                f.write("   $display(\"BEFORE ZOIX INJECTION\");\n")
+                f.write("   $fs_inject;\n")
+                f.write("   $display(\"ZOIX INJECTION\");\n")
                 f.write("end\n")
                 f.write("\n")
-                f.write("// initial begin\n")
-                f.write("//     $dumpfile(\"{self.core}.vcd\");\n")
-                f.write("//     $dumpvars(0, `TOPLEVEL);\n")
-                f.write("// end\n")
-                f.write("\n")
                 f.write("always @(negedge `TOPLEVEL.clock_uncore) begin\n")
-                f.write("$fs_strobe(`TOPLEVEL);\n")
+                f.write("   $fs_strobe(" + self.strobe_module + ");\n")
                 f.write("end\n")
                 f.write("\n")
                 f.write("endmodule\n")
@@ -304,16 +300,16 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         return os.path.join(self.run_dir, self.get_setting("fsim.inputs.output_fault_rpt"))
 
     @property
-    def fdb_path(self) -> str:
-        return os.path.join(self.run_dir, "fdb")
+    def fsdb_path(self) -> str:
+        return os.path.join(self.run_dir, "fsdb")
 
     @property
     def env_vars(self) -> Dict[str, str]:
-        v = dict(super().env_vars)
-        v["VCS_HOME"] = self.get_setting("fsim.vc_zoix.vcs_home")
-        v["VERDI_HOME"] = self.get_setting("fsim.vc_zoix.verdi_home")
-        v["SNPSLMD_LICENSE_FILE"] = self.get_setting("synopsys.SNPSLMD_LICENSE_FILE")
-        return v
+        env = dict(super().env_vars)
+        env["VCS_HOME"] = self.get_setting("fsim.vc_zoix.vcs_home")
+        env["VERDI_HOME"] = self.get_setting("fsim.vc_zoix.verdi_home")
+        env["SNPSLMD_LICENSE_FILE"] = self.get_setting("synopsys.SNPSLMD_LICENSE_FILE")
+        return env
 
     def get_verilog_models(self) -> List[str]:
         verilog_sim_files = self.technology.read_libs([
@@ -347,16 +343,21 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             with open(abspath_all_regs) as reg_file:
                 reg_json = json.load(reg_file)
                 assert isinstance(reg_json, List), "list of all sequential cells should be a json list of dictionaries from string to string not {}".format(type(reg_json))
+                # If the DfT has been inserted
+                if self.get_setting("synthesis.dc.dft_insertion"):
+                    f.write("force "+ tb_prefix + ".test_se 0\n")
+                    f.write("force "+ tb_prefix + ".test_mode 0\n")
                 for reg in sorted(reg_json, key=lambda r: len(r["path"])): # TODO: This is a workaround for a bug in P-2019.06
                     path = reg["path"]
                     path = '.'.join(path.split('/'))
                     pin = reg["pin"]
-                    f.write("force -deposit {" + tb_prefix + "." + path + " ." + pin + "} " + str(force_val) + "\n")
+                    f.write("force -deposit {" + tb_prefix + "." + path + "." + pin + "} " + str(force_val) + "\n")
 
         return True
 
     
     def run_vcs(self) -> bool:
+        # Run elaboration
         # run through inputs and append to CL arguments
         vcs_bin = self.get_setting("fsim.vc_zoix.vcs_bin")
         if not os.path.isfile(vcs_bin):
@@ -368,6 +369,22 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
 
         # We are switching working directories and we still need to find paths
         abspath_input_files = list(map(lambda name: os.path.join(os.getcwd(), name), self.input_files))
+
+        for v in abspath_input_files:
+            if not os.path.exists(v):
+                self.logger.error("Cannot find %s" % v)
+                return False
+        
+        # Grab the ChipTop RTL file and remove from the input files
+        # used for the synthesis (just to be sure to elaborate the correct ChipTop module and submodules)
+        if self.level.is_gatelevel():
+            rtl_files_to_remove = []
+            for v_file in abspath_input_files:
+                if v_file in self.get_setting("sim.inputs.syn_input_files"):
+                    rtl_files_to_remove.append(v_file)
+            if len(rtl_files_to_remove) > 0:
+                for file_to_remove in rtl_files_to_remove:
+                    abspath_input_files.remove(file_to_remove)
 
         top_module = self.top_module
         compiler_cc_opts = self.get_setting("fsim.inputs.compiler_cc_opts", [])
@@ -411,7 +428,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         # black box options
         args.extend(options)
 
-        # Multicore options
+        # Multicore elaboration options
         if isinstance(self.submit_command, HammerLSFSubmitCommand):
             if self.submit_command.settings.num_cpus is not None:
                 args.extend(['-j'+str(self.submit_command.settings.num_cpus)])
@@ -496,92 +513,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         exec_flags_append = self.get_setting("fsim.inputs.execution_flags_append", [])
         force_regs_filename = self.force_regs_file_path
         tb_prefix = self.get_setting("fsim.inputs.tb_dut")
-        saif_mode = self.get_setting("fsim.inputs.saif.mode")
-        saif_start_time: Optional[str] = None
-        saif_end_time: Optional[str] = None
-        saif_start_trigger_raw: Optional[str] = None
-        saif_end_trigger_raw: Optional[str] = None
-        if saif_mode == "time":
-            saif_start_time = self.get_setting("fsim.inputs.saif.start_time")
-            saif_end_time = self.get_setting("fsim.inputs.saif.end_time")
-        elif saif_mode == "trigger":
-            self.logger.error("Trigger SAIF mode currently unsupported.")
-        elif saif_mode == "trigger_raw":
-            saif_start_trigger_raw = self.get_setting("fsim.inputs.saif.start_trigger_raw")
-            saif_end_trigger_raw = self.get_setting("fsim.inputs.saif.end_trigger_raw")
-        elif saif_mode == "full":
-            pass
-        elif saif_mode == "none":
-            pass
-        else:
-            self.logger.warning("Bad saif_mode:${saif_mode}. Valid modes are time, trigger, full, or none. Defaulting to none.")
-            saif_mode = "none"
-
-        if self.level == FlowLevel.RTL and saif_mode != "none":
-            find_regs_run_tcl = []
-            if saif_mode != "none":
-                stime: Optional[TimeValue] = None
-                if saif_mode == "time":
-                    assert saif_start_time
-                    stime = TimeValue(saif_start_time)
-                    find_regs_run_tcl.append("run {start}ns".format(start=stime.value_in_units("ns")))
-                elif saif_mode == "trigger_raw":
-                    find_regs_run_tcl.append(saif_start_trigger_raw)
-                    find_regs_run_tcl.append("run")
-                elif saif_mode == "full":
-                    pass
-                # start saif
-                find_regs_run_tcl.append("power {dut}".format(dut=tb_prefix))
-                find_regs_run_tcl.append("config endofsim noexit")
-                if saif_mode == "time":
-                    assert saif_end_time
-                    assert stime
-                    etime = TimeValue(saif_end_time)
-                    find_regs_run_tcl.append("run {end}ns".format(end=(etime.value_in_units("ns") - stime.value_in_units("ns"))))
-                elif saif_mode == "trigger_raw":
-                    find_regs_run_tcl.append(saif_end_trigger_raw)
-                    find_regs_run_tcl.append("run")
-                elif saif_mode == "full":
-                    find_regs_run_tcl.append("run")
-                # stop saif
-                find_regs_run_tcl.append("power -report ucli.saif 1e-9 {dut}".format(dut=tb_prefix))
-            find_regs_run_tcl.append("run")
-            find_regs_run_tcl.append("exit")
-            self.write_contents_to_path("\n".join(find_regs_run_tcl), self.run_tcl_path)
-
-        if self.level.is_gatelevel():
-            find_regs_run_tcl = []
-            find_regs_run_tcl.append("source " + force_regs_filename)
-            if saif_mode != "none":
-                stime: Optional[TimeValue] = None
-                if saif_mode == "time":
-                    assert saif_start_time
-                    stime = TimeValue(saif_start_time)
-                    find_regs_run_tcl.append("run {start}ns".format(start=stime.value_in_units("ns")))
-                elif saif_mode == "trigger_raw":
-                    find_regs_run_tcl.append(saif_start_trigger_raw)
-                    find_regs_run_tcl.append("run")
-                elif saif_mode == "full":
-                    pass
-                # start saif
-                find_regs_run_tcl.append("power -gate_level on")
-                find_regs_run_tcl.append("power {dut}".format(dut=tb_prefix))
-                find_regs_run_tcl.append("config endofsim noexit")
-                if saif_mode == "time":
-                    assert saif_end_time
-                    assert stime
-                    etime = TimeValue(saif_end_time)
-                    find_regs_run_tcl.append("run {end}ns".format(end=(etime.value_in_units("ns") - stime.value_in_units("ns"))))
-                elif saif_mode == "trigger_raw":
-                    find_regs_run_tcl.append(saif_end_trigger_raw)
-                    find_regs_run_tcl.append("run")
-                elif saif_mode == "full":
-                    find_regs_run_tcl.append("run")
-                # stop saif
-                find_regs_run_tcl.append("power -report ucli.saif 1e-9 {dut}".format(dut=tb_prefix))
-            find_regs_run_tcl.append("run")
-            find_regs_run_tcl.append("exit")
-            self.write_contents_to_path("\n".join(find_regs_run_tcl), self.run_tcl_path)
 
         for benchmark in self.benchmarks:
             if not os.path.isfile(benchmark):
@@ -596,23 +527,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             num_threads=int(self.get_setting("vlsi.core.max_threads")) - 1
             args.append("-fgp=num_threads:{threads},num_fsdb_threads:0,allow_less_cores,dynamictoggle".format(threads=max(num_threads,1)))
         args.extend(exec_flags)
-        if self.level.is_gatelevel():
-            if saif_mode != "none":
-                args.extend([
-                    # Reduce the number ucli instructions by auto starting and auto stopping
-                    '-saif_opt+toggle_start_at_set_region+toggle_stop_at_toggle_report',
-                    # Only needed if we are using start time pruning so we can return to ucli after endofsim
-                    '-ucli2Proc',
-                ])
-            args.extend(["-ucli", "-do", self.run_tcl_path])
-        elif self.level == FlowLevel.RTL and saif_mode != "none":
-            args.extend([
-                # Reduce the number ucli instructions by auto starting and auto stopping
-                '-saif_opt+toggle_start_at_set_region+toggle_stop_at_toggle_report',
-                # Only needed if we are using start time pruning so we can return to ucli after endofsim
-                '-ucli2Proc',
-            ])
-            args.extend(["-ucli", "-do", self.run_tcl_path])
         args.extend(exec_flags_append)
         for benchmark in self.benchmarks:
             args.append(benchmark)
