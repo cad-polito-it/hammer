@@ -162,19 +162,13 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
     def fill_outputs(self) -> bool:
 # TODO: support automatic waveform generation for debugging Good Machine and Faulty Machine with Verdi
         self.output_waveforms = []
-        self.output_saifs = []
         self.output_top_module = self.top_module
         self.output_tb_name = self.get_setting("fsim.inputs.tb_name")
         self.output_tb_dut = self.get_setting("fsim.inputs.tb_dut")
         self.strobe_file_name = self.get_setting("fsim.inputs.strobe_file_name")
         self.fault_model = self.get_setting("fsim.inputs.fault_model")
         self.core = self.get_setting("fsim.inputs.core")
-        self.get_setting("fsim.strobe_module"):
-        if self.get_setting("fsim.inputs.saif.mode") != "none":
-            if not self.benchmarks:
-                self.output_saifs.append(os.path.join(self.run_dir, "ucli.saif"))
-            for benchmark in self.benchmarks:
-                self.output_saifs.append(os.path.join(self.benchmark_run_dir(benchmark), "ucli.saif"))
+        self.get_setting("fsim.inputs.strobe_module")
         benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
         if not os.path.exists(os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name)):
             os.makedirs(os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name))
@@ -380,7 +374,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         if self.level.is_gatelevel():
             rtl_files_to_remove = []
             for v_file in abspath_input_files:
-                if v_file in self.get_setting("sim.inputs.syn_input_files"):
+                if v_file in self.get_setting("fsim.inputs.syn_input_files"):
                     rtl_files_to_remove.append(v_file)
             if len(rtl_files_to_remove) > 0:
                 for file_to_remove in rtl_files_to_remove:
