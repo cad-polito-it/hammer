@@ -552,33 +552,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         if self.level.is_gatelevel():
             find_regs_run_tcl = []
             find_regs_run_tcl.append("source " + force_regs_filename)
-            if saif_mode != "none":
-                stime: Optional[TimeValue] = None
-                if saif_mode == "time":
-                    assert saif_start_time
-                    stime = TimeValue(saif_start_time)
-                    find_regs_run_tcl.append("run {start}ns".format(start=stime.value_in_units("ns")))
-                elif saif_mode == "trigger_raw":
-                    find_regs_run_tcl.append(saif_start_trigger_raw)
-                    find_regs_run_tcl.append("run")
-                elif saif_mode == "full":
-                    pass
-                # start saif
-                find_regs_run_tcl.append("power -gate_level on")
-                find_regs_run_tcl.append("power {dut}".format(dut=tb_prefix))
-                find_regs_run_tcl.append("config endofsim noexit")
-                if saif_mode == "time":
-                    assert saif_end_time
-                    assert stime
-                    etime = TimeValue(saif_end_time)
-                    find_regs_run_tcl.append("run {end}ns".format(end=(etime.value_in_units("ns") - stime.value_in_units("ns"))))
-                elif saif_mode == "trigger_raw":
-                    find_regs_run_tcl.append(saif_end_trigger_raw)
-                    find_regs_run_tcl.append("run")
-                elif saif_mode == "full":
-                    find_regs_run_tcl.append("run")
-                # stop saif
-                find_regs_run_tcl.append("power -report ucli.saif 1e-9 {dut}".format(dut=tb_prefix))
             find_regs_run_tcl.append("run")
             find_regs_run_tcl.append("exit")
             self.write_contents_to_path("\n".join(find_regs_run_tcl), self.run_tcl_path)
