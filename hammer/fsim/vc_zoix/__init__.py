@@ -481,6 +481,9 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         args.append("+notimingcheck")
         args.append("+vcs+fsdbon")
         args.append("+define+fsdb")
+        
+        # Remove "+rad" from arguments if present
+        args = [arg for arg in args if arg != "+rad"]
 
         # Delete an old copy of the simulator if it exists
         if os.path.exists(self.simulator_executable_path):
