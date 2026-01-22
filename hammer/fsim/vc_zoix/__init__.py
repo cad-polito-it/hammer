@@ -1,4 +1,4 @@
-#  hammer-vlsi plugin for Synopsys VCS
+#  hammer-vlsi plugin for Synopsys VC-Z01X
 #
 #  See LICENSE for license details.
 
@@ -160,7 +160,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         return "fsim.vc_zoix"
 
     def fill_outputs(self) -> bool:
-        # TODO: support automatic waveform generation in a similar fashion to SAIFs
+# TODO: support automatic waveform generation for debugging Good Machine and Faulty Machine with Verdi
         self.output_waveforms = []
         self.output_saifs = []
         self.output_top_module = self.top_module
