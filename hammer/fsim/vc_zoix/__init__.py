@@ -1,4 +1,4 @@
-#  hammer-vlsi plugin for Synopsys VCS
+#  hammer-vlsi plugin for Synopsys VC-Z01X
 #
 #  See LICENSE for license details.
 

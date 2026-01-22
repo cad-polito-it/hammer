@@ -848,7 +848,7 @@ sim.submit:
 # These inputs will vary based on if the simulation is for RTL, post synthesis, or post PAR.
 # There may be HAMMER simulation tool plugins available that include common simulator flags and inputs that can be modified/augmented for the user's needs.
 fsim.inputs:
-  top_module: null # Top RTL module for simulation
+  top_module: null # Top RTL/gate/par module for simulation
   # type: str
 
   input_files: [] # Input files for simulation including verilog sources, testharness/testbench, etc.
