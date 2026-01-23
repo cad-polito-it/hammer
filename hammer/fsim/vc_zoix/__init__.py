@@ -168,7 +168,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         self.strobe_file_name = self.get_setting("fsim.inputs.strobe_file_name")
         self.fault_model = self.get_setting("fsim.inputs.fault_model")
         self.core = self.get_setting("fsim.inputs.core")
-        self.get_setting("fsim.inputs.strobe_module")
+        self.clocks = self.get_setting("vlsi.inputs.clocks")
         benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
         if not os.path.exists(os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name)):
             os.makedirs(os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name))
@@ -182,17 +182,22 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 f.write("\n")
                 f.write("module strobe;\n")
                 f.write("\n")
-                f.write("integer cmp;\n")
-                f.write("\n")
                 f.write("initial begin\n")
-                f.write("   #10;\n")
-                f.write("   $display(\"BEFORE ZOIX INJECTION\");\n")
-                f.write("   $fs_inject;\n")
-                f.write("   $display(\"ZOIX INJECTION\");\n")
+                defines = self.get_setting("fsim.inputs.defines")
+                reset_delay = next(
+                    (s.split("=", 1)[1] for s in defines if s.startswith("RESET_DELAY=")),
+                    "10"
+                )
+                f.write("    #" + reset_delay + ";\n")
+                f.write("    $display(\"BEFORE ZOIX INJECTION\");\n")
+                f.write("    $fs_inject;\n")
+                f.write("    $display(\"ZOIX INJECTION\");\n")
                 f.write("end\n")
                 f.write("\n")
-                f.write("always @(negedge `TOPLEVEL.clock_uncore) begin\n")
-                f.write("   $fs_strobe(" + self.strobe_module + ");\n")
+                f.write("always @(negedge `TOPLEVEL." + self.clocks[0].get('name') + ") begin\n")
+                self.strobe_modules = self.get_setting("fsim.inputs.strobe_modules")
+                for strobe_module in self.strobe_modules:
+                    f.write("    $fs_strobe(" + strobe_module + ");\n")
                 f.write("end\n")
                 f.write("\n")
                 f.write("endmodule\n")
@@ -229,24 +234,44 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 f.write("{\n")
                 f.write("        Weights\n")
                 f.write("        {\n")
-                f.write("                PD=0.5;\n")
-                f.write("                PT=1.0;\n")
+                self.weights = self.get_setting("fsim.inputs.weights")
+                for w in self.weights:
+                    f.write("                " + w.get('fault_class') + "=" + w.get('weight') + ";\n")
                 f.write("        }\n")
                 f.write("        \"Test Coverage\" = \"(DD * DD_weight + DT * DT_weight + DE * DE_weight + DF * DF_weight + PD * PD_weight + PT * PT_weight)/(Total)\";\n")
                 f.write("        \"Fault Coverage\" = \"(DD * DD_weight + DT * DT_weight + DE * DE_weight + DF * DF_weight + PD * PD_weight + PT * PT_weight)/(Total + UB + UI + UR + UT + UU + UO)\";\n") 
                 f.write("}\n")
                 f.write("\n")
+                # self.constraints = self.get_setting("fsim.inputs.constraints")
+                # if self.constraints:
+                #     for constraint in self.constraints:
+                #         f.write("Constraints " + constraint + "\n")
+                #         f.write("{\n")
+                #     f.write("\n")
                 f.write("# Set fault generation constraints\n")
                 f.write("FaultGenerate\n")
                 f.write("{\n")
-                if (self.fault_model == "saf"):
-                    f.write("    NA [0,1] {PORT \"" + self.output_tb_dut + ".**\" }\n")
-                if (self.fault_model == "tdf"):
-                    f.write("    NA [R,F] {PORT \"" + self.output_tb_dut + ".**\" }\n")
+                self.fault_locations = self.get_setting("fsim.inputs.fault_locations")
+                if (self.fault_model == "saf" or self.fault_model == "tdf"):
+                    for fl in self.fault_locations:
+                        if fl.get('exclude'):
+                            f.write("    Exclude {\n")
+                            f.write("        NA [" + fl.get('fault_type') + "] {" + fl.get('type_of_fault_location') + " \"" + fl.get('location') + "\" }\n")
+                            f.write("    }\n")
+                        else:
+                            f.write("    NA [" + fl.get('fault_type') + "] {" + fl.get('type_of_fault_location') + " \"" + fl.get('location') + "\" }\n")
+                        f.write("\n")
                 if (self.fault_model == "tf"):
-                    f.write("    Timing (\"clock_uncore\", CycleTime 2ns)\n")
-                    f.write("    UseTiming(\"clock_uncore\")\n")
-                    f.write("    NA ~ (10) {PORT \"" + self.output_tb_dut + ".**\" }\n")
+                    f.write("    Timing (\"" + self.clocks[0].get('name') + "\", CycleTime " + self.clocks[0].get('period') + ")\n")
+                    f.write("    UseTiming(\"" + self.clocks[0].get('name') + "\")\n")
+                    for fl in self.fault_locations:
+                        if fl.exclude:
+                            f.write("    Exclude {\n")
+                            f.write("        NA ~ (" + fl.fault_type + ") {" + fl.type_of_fault_location + " \"" + fl.location + "\" }\n")
+                            f.write("    }")
+                        else:
+                            f.write("    NA ~ (" + fl.fault_type + ") {" + fl.type_of_fault_location + " \"" + fl.location + "\" }\n")
+                    f.write("\n")
                 f.write("}\n")
         self.report_folder = ""
         return True
@@ -387,6 +412,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         timescale = self.get_setting("fsim.inputs.timescale")
         options = self.get_setting("fsim.inputs.options", [])
         defines = self.get_setting("fsim.inputs.defines", [])
+        optional_execution_flags = self.get_setting("fsim.inputs.optional_execution_flags", [])
         access_tab_filename = self.access_tab_file_path
         tb_name = self.get_setting("fsim.inputs.tb_name")
         strobe_file_path = os.path.join(os.getcwd(), self.strobe_file_name)
@@ -479,8 +505,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         args.append("-fsim=class")
         
         args.append("+notimingcheck")
-        args.append("+vcs+fsdbon")
         args.append("+define+fsdb")
+        args.extend(optional_execution_flags)
         
         # Remove "+rad" from arguments if present
         args = [arg for arg in args if arg != "+rad"]

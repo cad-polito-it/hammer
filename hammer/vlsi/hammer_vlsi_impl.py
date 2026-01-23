@@ -1656,7 +1656,6 @@ class HammerFaultSimTool(HammerTool):
     def export_config_outputs(self) -> Dict[str, Any]:
         outputs = deepdict(super().export_config_outputs())
         outputs["fsim.outputs.waveforms"] = self.output_waveforms
-        outputs["fsim.outputs.saifs"] = self.output_saifs
         outputs["fsim.outputs.output_top_module"] = self.output_top_module
         outputs["fsim.outputs.output_tb_name"] = self.output_tb_name
         outputs["fsim.outputs.output_tb_dut"] = self.output_tb_dut

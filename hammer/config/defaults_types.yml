@@ -627,8 +627,35 @@ fsim.inputs:
   # type: bool
   execute_sim: bool
 
-  strobe_module: str # Strobe position if strobe file is not provided
+  # Optional execution flags for the fault simulator
+  # type: list[str]
+  optional_execution_flags: Optional[list[str]]
 
+  # Determine the weights of all the parameters in the test and fault coverage
+  weights: Optional[list[dict[str, Any]]]
+
+  # Determines the fault locations and types
+  # type: Optional[dict[str, Any]]
+  # Formatted as: 
+  # [ (position_of_fault[s], {type_of_fault}, type_of_fault_location), ... ]
+  # e.g. [
+  # {location: "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.core.**", # Stuck-at
+  #               fault_type: "0,1", type_of_fault_location: "PORT", exclude: False},
+  #            "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.core.**", # Transition
+  #               fault_type: "R,F", type_of_fault_location: "PORT", exclude: False},
+  #            "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.core.**", # Transient
+  #               fault_type: "12542", type_of_fault_location: "PORT", exclude: False},
+  fault_locations: Optional[list[dict[str, Any]]]
+
+  # Strobe position if strobe file is not provided
+  # type: list[str]
+  # e.g. ["`TOPLEVEL.system.tile_prci_domain.element_reset_domain_rockettile.core", 
+  #       "`TOPLEVEL.system.tile_prci_domain.element_reset_domain_rockettile.fpuOpt"]
+  strobe_modules: Optional[list[str]] 
+
+  # Contraints for the sff file
+  # type: list[dict[str, Any]]
+  constraints: Optional[list[dict[str, Any]]]
 
 
 fsim.submit:

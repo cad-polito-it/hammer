@@ -950,7 +950,28 @@ fsim.inputs:
   
   core: "" # Name of the core used
 
-  strobe_module: "" # Strobe position if strobe file is not provided
+  optional_execution_flags: []
+
+  # Determine the weights of all the parameters in the test and fault coverage
+  weights: []
+
+  # Determines the fault locations and types
+  # type: list[tuple[str, set[str], str]]
+  # Formatted as: 
+  # [ (position_of_fault[s], {type_of_fault}, type_of_fault_location), ... ]
+  # e.g. [ "ChipTop.system.**", {R, F}, "PORT",   # transition fault location
+  #        "ChipTop.system.**", {0, 1}, "WIRE",   # stuck-at fault location
+  #        "ChipTop.system.**", {32098}, "PORT" ] # transient fault location
+  fault_locations: []
+
+  # Strobe position if strobe file is not provided
+  # type: list[str]
+  # e.g. ["`TOPLEVEL.system.tile_prci_domain.element_reset_domain_rockettile.core", 
+  #       "`TOPLEVEL.system.tile_prci_domain.element_reset_domain_rockettile.fpuOpt"]
+  strobe_modules: []
+
+
+  constraints: []
 
 fsim.submit:
   command: "${vlsi.submit.command}"
