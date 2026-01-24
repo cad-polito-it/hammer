@@ -548,7 +548,7 @@ sim.submit:
 
 # Specific inputs for the simulation tool.
 fsim.inputs:
-  # Top RTL module for simulation
+  # Top RTL/Gate-level module for simulation
   # type: str
   top_module: Optional[str]
 
