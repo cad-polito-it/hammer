@@ -48,6 +48,10 @@ vlsi.core:
   # Maximum threads to use in a CAD tool invocation.
   max_threads: int
 
+  fsim:
+    # Maximum threads to use in a FSIM tool invocation.
+    max_threads: int
+
 vlsi.technology:
   # Placement site for macros. (Optional[str])
   placement_site: Optional[str]
@@ -633,6 +637,15 @@ fsim.inputs:
 
   # Determine the weights of all the parameters in the test and fault coverage
   weights: Optional[list[dict[str, Any]]]
+
+  # Function to compute the test coverage
+  test_coverage: Optional[str]
+
+  # Function to compute the fault coverage
+  fault_coverage: Optional[str]
+
+  # Function to compute a custom coverage 
+  custom_coverage_functions: Optional[list[dict[str, str]]]
 
   # Determines the fault locations and types
   # type: Optional[dict[str, Any]]

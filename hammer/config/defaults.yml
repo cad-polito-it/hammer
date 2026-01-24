@@ -53,6 +53,9 @@ vlsi.core:
 
   max_threads: 1 # Maximum threads to use in a CAD tool invocation.
 
+  fsim:
+    max_threads: 1 # Maximum threads to use in a FSIM tool invocation.
+
 vlsi.technology:
 # TODO ucb-bar/hammer#317 move these to technology.core (discussion to be had)
   placement_site: null # Placement site for macros. (Optional[str])
@@ -952,26 +955,19 @@ fsim.inputs:
 
   optional_execution_flags: []
 
-  # Determine the weights of all the parameters in the test and fault coverage
-  weights: []
+  weights: [] # Determine the weights of all the parameters in the test and fault coverage
+  
+  test_coverage: "" # Function to compute the test coverage
 
-  # Determines the fault locations and types
-  # type: list[tuple[str, set[str], str]]
-  # Formatted as: 
-  # [ (position_of_fault[s], {type_of_fault}, type_of_fault_location), ... ]
-  # e.g. [ "ChipTop.system.**", {R, F}, "PORT",   # transition fault location
-  #        "ChipTop.system.**", {0, 1}, "WIRE",   # stuck-at fault location
-  #        "ChipTop.system.**", {32098}, "PORT" ] # transient fault location
-  fault_locations: []
+  fault_coverage: "" # Function to compute the fault coverage
 
-  # Strobe position if strobe file is not provided
-  # type: list[str]
-  # e.g. ["`TOPLEVEL.system.tile_prci_domain.element_reset_domain_rockettile.core", 
-  #       "`TOPLEVEL.system.tile_prci_domain.element_reset_domain_rockettile.fpuOpt"]
-  strobe_modules: []
+  custom_coverage_functions: [] # Custom coverages to implement
 
+  fault_locations: [] # Determines the fault locations and types
 
-  constraints: []
+  strobe_modules: [] # Strobe position if strobe file is not provided
+
+  constraints: []  # Contraints for the sff file
 
 fsim.submit:
   command: "${vlsi.submit.command}"

@@ -183,12 +183,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 f.write("module strobe;\n")
                 f.write("\n")
                 f.write("initial begin\n")
-                defines = self.get_setting("fsim.inputs.defines")
-                reset_delay = next(
-                    (s.split("=", 1)[1] for s in defines if s.startswith("RESET_DELAY=")),
-                    "10"
-                )
-                f.write("    #" + reset_delay + ";\n")
+                f.write("    #`RESET_DELAY;\n")
                 f.write("    $display(\"BEFORE ZOIX INJECTION\");\n")
                 f.write("    $fs_inject;\n")
                 f.write("    $display(\"ZOIX INJECTION\");\n")
@@ -238,16 +233,28 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 for w in self.weights:
                     f.write("                " + w.get('fault_class') + "=" + w.get('weight') + ";\n")
                 f.write("        }\n")
-                f.write("        \"Test Coverage\" = \"(DD * DD_weight + DT * DT_weight + DE * DE_weight + DF * DF_weight + PD * PD_weight + PT * PT_weight)/(Total)\";\n")
-                f.write("        \"Fault Coverage\" = \"(DD * DD_weight + DT * DT_weight + DE * DE_weight + DF * DF_weight + PD * PD_weight + PT * PT_weight)/(Total + UB + UI + UR + UT + UU + UO)\";\n") 
+                self.test_coverage = self.get_setting("fsim.inputs.test_coverage")
+                if self.test_coverage:
+                    f.write("        \"Test Coverage\" = \"" + self.test_coverage + "\";\n")
+                self.fault_coverage = self.get_setting("fsim.inputs.fault_coverage")
+                if self.fault_coverage:
+                    f.write("        \"Fault Coverage\" = \"" + self.fault_coverage + "\";\n") 
+                self.custom_coverage_functions = self.get_setting("fsim.inputs.custom_coverage_functions")
+                if self.custom_coverage_functions:
+                    for ccf in self.custom_coverage_functions:
+                        f.write("        \"" + ccf.get('name') +"\" = \"" + ccf.get('function') + "\";\n") 
                 f.write("}\n")
                 f.write("\n")
-                # self.constraints = self.get_setting("fsim.inputs.constraints")
-                # if self.constraints:
-                #     for constraint in self.constraints:
-                #         f.write("Constraints " + constraint + "\n")
-                #         f.write("{\n")
-                #     f.write("\n")
+                self.constraints = self.get_setting("fsim.inputs.constraints")
+                if self.constraints:
+                    for constraint in self.constraints:
+                        f.write("Constraint " + constraint.get('name') + "\n")
+                        f.write("{\n")
+                        for entry in constraint.get('entries'):
+                            f.write("        " + entry.get('type') + " \"" + entry.get('signal') + "==" + entry.get('value') + "\";\n")
+                        f.write("}\n")
+                        f.write("\n")
+                    f.write("\n")
                 f.write("# Set fault generation constraints\n")
                 f.write("FaultGenerate\n")
                 f.write("{\n")
@@ -281,7 +288,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         return self.make_steps_from_methods([
             self.fill_outputs,
             self.write_gl_files,
-            self.run_vcs,
+            self.run_vcs,  # VCS elaboration for VC-Z01X
             self.generate_tcl,
             self.fgen,
             self.fcc,
@@ -505,10 +512,9 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         args.append("-fsim=class")
         
         args.append("+notimingcheck")
-        args.append("+define+fsdb")
         args.extend(optional_execution_flags)
         
-        # Remove "+rad" from arguments if present
+        # Remove "+rad" from arguments if present, VC-Z01X does not support it
         args = [arg for arg in args if arg != "+rad"]
 
         # Delete an old copy of the simulator if it exists
@@ -554,7 +560,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         args.extend(exec_flags_prepend)
         if self.get_setting("fsim.vc_zoix.fgp") and self.version() >= self.version_number("M-2017.03"):
             # num_threads is in addition to a master thread, so reduce by 1
-            num_threads=int(self.get_setting("vlsi.core.max_threads")) - 1
+            num_threads=int(self.get_setting("vlsi.core.fsim.max_threads")) - 1
             args.append("-fgp=num_threads:{threads},num_fsdb_threads:0,allow_less_cores,dynamictoggle".format(threads=max(num_threads,1)))
         args.extend(exec_flags)
         if self.level.is_gatelevel():
