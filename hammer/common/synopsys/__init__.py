@@ -147,7 +147,6 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
             return ""
         else:
             return synopsys_rm_tarball
-
     def child_modules_tcl(self) -> str:
         """
         Dumps a list of child instance paths and their ilm directories.

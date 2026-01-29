@@ -731,24 +731,18 @@ technology.core:
 
 
 atpg.inputs:
-  top_module: null # Top RTL module for simulation
+  top_module: null # Top Gate-level module for simulation
   # type: str
 
   input_files: [] # Input files for simulation including verilog sources, testharness/testbench, etc.
   # type: List[str]
 
   tb_dut: "dut" # Hierarchical path to the top level instance of the "dut" from the testbench.
-  # For example, this will be used to generate the hierarchical path through the testbench and DUT to each sequential element in the design.
-  # TODO(johnwright) automate this by parsing the TB verilog?
   # type: str
 
   tb_name: "TestDriver" # Name of the simulation testbench/test driver module
 
   level: "syn" # Simulation mode for simulation at different levels of the VLSI flow
-  # Valid options are:
-  #   "rtl" for rtl level simulation
-  #   "syn" for post-synthesis level simulation
-  #   "par" for post-par level simulation
   # type: FlowLevel
 
   all_regs: "" # Path to a list of all registers in the design passed from synthesis or place-and-route

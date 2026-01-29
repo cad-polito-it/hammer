@@ -439,7 +439,7 @@ technology.core:
 
 # Specific inputs for the simulation tool.
 atpg.inputs:
-  # Top RTL module for simulation
+  # Top Gate-level module for simulation
   # type: str
   top_module: Optional[str]
 

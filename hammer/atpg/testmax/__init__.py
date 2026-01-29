@@ -48,6 +48,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         elif self.fault_model == "tdf":
             return "transition"
         else:
+            self.logger.warning(f"Fault model {self.fault_model} not yet supported. Defaulting to Stuck-at fault model")
             return "stuck" # in case of different values not supported at the moment, it returns the default value
 
     # Override to create folders for the specified fault model
@@ -153,7 +154,6 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.append(f"run_drc {spf_path}")
         return True
 
-    #TODO: incremental ATPG starting from a previous fault list
     def run_atpg(self) -> bool:
         """Run the ATPG stage following the canonical ATPG flow.
         4. Prepare design for ATPG, set up fault list and options

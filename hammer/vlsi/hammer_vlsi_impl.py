@@ -791,7 +791,6 @@ class HammerPlaceAndRouteTool(HammerTool):
             assert layer.index > last.index, "Must build power straps bottom-up"
             if last.direction == layer.direction:
                 raise ValueError("Layers {a} and {b} run in the same direction, but have no power straps between them.".format(a=last.name, b=layer.name))
-
             pattern = self._get_by_tracks_metal_setting("pattern", layer_name)
             blockage_spacing = coerce_to_grid(float(self._get_by_tracks_metal_setting("blockage_spacing", layer_name)), layer.grid_unit)
             track_width = int(self._get_by_tracks_metal_setting("track_width", layer_name))
