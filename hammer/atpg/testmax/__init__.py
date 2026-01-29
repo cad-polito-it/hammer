@@ -90,6 +90,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         3. Build the ATPG design model
 
         Writes initial TCL lines into `self.output` for consumption by `run_atpg`.
+
+        If present, include optional arguments from the Hammer config:
+        - atpg.testmax.build_rules: list of dictionaries containing rules and their severity to set
         """
         log = HammerVLSILogging.context("atpg.testmax.build")
 
@@ -118,8 +121,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.append("set_build -nodelete_unused_gates")
         self.append("set_build -add_celldefine_nets")
 
-        # Setting the severity of the rule B5 to warning so the black boxes are automatically set
-        self.append("set_rules B5 warning")
+        # Setting the severity of rules
+        build_rules = self.get_setting("atpg.testmax.build_rules", nullvalue=[])  # type: List[dict]
+        for rule in build_rules:
+            self.append(f"set_rules {rule['rule_code']} {rule['severity']}")
         self.append("set_netlist -escape all")
         # 3) Build the ATPG design model
         self.append(f'run_build_model {self.top_module}')
