@@ -33,6 +33,9 @@ vlsi.core:
   # Sim tool to use.
   sim_tool: "hammer.sim.mocksim"
 
+  # Fault Sim tool to use.
+  fsim_tool: "hammer.fsim.mockfsim"
+
   # Power analysis tool to use.
   power_tool: "hammer.power.nop" # TODO: doesn't exist
 
@@ -49,6 +52,9 @@ vlsi.core:
   # For the default 'generic' tool, the list of artefacts can be found in src/hammer-vlsi/pcb/generic/__init__.py
 
   max_threads: 1 # Maximum threads to use in a CAD tool invocation.
+
+  fsim:
+    max_threads: 1 # Maximum threads to use in a FSIM tool invocation.
 
 vlsi.technology:
 # TODO ucb-bar/hammer#317 move these to technology.core (discussion to be had)
@@ -835,6 +841,135 @@ sim.inputs:
   # type: bool
 
 sim.submit:
+  command: "${vlsi.submit.command}"
+  command_meta: lazysubst
+  settings: "vlsi.submit.settings"
+  settings_meta: lazycrossref
+
+
+# Specific inputs for the simulation tool.
+# These inputs will vary based on if the simulation is for RTL, post synthesis, or post PAR.
+# There may be HAMMER simulation tool plugins available that include common simulator flags and inputs that can be modified/augmented for the user's needs.
+fsim.inputs:
+  top_module: null # Top RTL/gate/par module for simulation
+  # type: str
+
+  input_files: [] # Input files for simulation including verilog sources, testharness/testbench, etc.
+  # type: List[str]
+
+  options: [] # Permissive options for the simulator generation
+  # These options will appear as plain string option additions when generating the simulation executable
+  # type: List[str]
+
+  defines: [] # Define options passed when generating the simulation executable
+  # For example: when passed to VCS, each define in the input list will be added as "+define+" + {define}
+  # type: List[str]
+
+  compiler_cc_opts: [] # C compiler options used when generating the simulation executable
+  # For example: when passed to VCS, each compiler_cc_opt will be added as "-CC " + {compiler_cc_opt}
+  # type: List[str]
+
+  compiler_ld_opts: [] # C linker options used when generating the simulation executable
+  # For example: when passed to VCS, each compiler_ld_opt will be added as "-LDFLAGS " + {compiler_ld_opt}
+  # type: List[str]
+
+  timescale: null # Simulation timescale
+  # This is passed as a plain string
+  # For example, for VCS, timescale may be set as "sim.inputs.timescale: '1ns/10ps' which would be passed as "-timescale=1ns/10ps"
+  # type: str
+
+  benchmarks: [] # Benchmarks to run with the simulator executable
+  # This is a list of paths to benchmark binaries that will be run with the simulator to test the design if the testbench requires it.
+  # For example, this may be a RISCV binary like rv64ui-p-simple.
+  # If left empty, the simulation will execute as normal.
+  # type: List[str]
+
+  parallel_runs: 1 # Maximum number of simulations to run in parallel.
+  # A value of -1 indicates all simulations should be launched in parallel
+  # A value of 0 and 1 are treated the same and all simulations are run serially
+  # type: int
+
+  tb_dut: "dut" # Hierarchical path to the top level instance of the "dut" from the testbench.
+  # For example, this will be used to generate the hierarchical path through the testbench and DUT to each sequential element in the design.
+  # TODO(johnwright) automate this by parsing the TB verilog?
+  # type: str
+
+  tb_name: "TestDriver" # Name of the simulation testbench/test driver module
+
+  level: "rtl" # Simulation mode for simulation at different levels of the VLSI flow
+  # Valid options are:
+  #   "rtl" for rtl level simulation
+  #   "syn" for post-synthesis level simulation
+  #   "par" for post-par level simulation
+  # type: FlowLevel
+
+  all_regs: "" # Path to a list of all registers in the design passed from synthesis or place-and-route
+  # type: str
+
+  seq_cells: "" # Path to a list of all sequential standard cells in the design passed from synthesis or place-and-route
+  # type: str
+
+  sdf_file: null # SDF File
+  # type: str
+  # Standard Delay Format file for use in timing annotated sims
+  # leave as null if not in use
+
+  gl_register_force_value: 0 # Simulation force value used for register initialization for gate level sims
+  # type: int
+
+  timing_annotated: false # Turns time annotated sim on or off
+  # type: bool
+  # If set to False, the sim will be purely functional, regardless of the simulation "level".
+  # If set to True, the sim will be time annotated based on synthesis or PAR results.
+
+  execution_flags: [] # Flags to run with the simulator
+  # Each string in this list will be passed as an option when actually executing the simulation executable generated from the previous arguments.
+  # type: List[str]
+
+  execution_flags_prepend: [] # Flags that are to be pre-pended to the simulator execution flags in "execution_flags"
+  # type: List[str]
+
+  execution_flags_append: [] # Flags that are to be appended to the simulator execution flags in "execution_flags"
+  # type: List[str]
+
+  execute_sim: true # Determines whether or not the simulation executable that is generated with the above inputs will actually be executed with the given flags or if the executable will just be generated in the specified run directory.
+  # type: bool
+
+  campaign_tb_dut: ""
+
+  strobe_file_name: "" # Path to the SystemVerilog strobe file for fault simulation
+  
+  campaign_tcl: "" # Path to the tcl file for the fault simulation campaign
+  
+  output_folder: "" # Path to the output folder dir where the output, sff file with fault generation and fault list, and fault report will be saved 
+  
+  fsim_generate_faults : true # Flag to decide wether to execute fault generation or if fault list is already provided
+  
+  standard_fault_format: "" # Path to the standard fault format file for fault simulation
+  
+  campaign_simv_daidir: "" # Path to the run directory of vc-zoix
+  
+  fault_model: saf # Fault model (saf, tf, tdf)
+  
+  core: "" # Name of the core used
+
+  optional_execution_flags: []
+
+  weights: [] # Determine the weights of all the parameters in the test and fault coverage
+  
+  test_coverage: "" # Function to compute the test coverage
+
+  fault_coverage: "" # Function to compute the fault coverage
+
+  custom_coverage_functions: [] # Custom coverages to implement
+
+  fault_locations: [] # Determines the fault locations and types
+
+  strobe_modules: [] # Strobe position if strobe file is not provided
+
+  constraints: []  # Contraints for the sff file
+
+fsim.submit:
   command: "${vlsi.submit.command}"
   command_meta: lazysubst
   settings: "vlsi.submit.settings"
