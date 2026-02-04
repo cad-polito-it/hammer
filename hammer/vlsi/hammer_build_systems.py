@@ -196,7 +196,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         {power_rtl_out}: {power_sim_rtl_in} $(HAMMER_POWER_RTL_DEPENDENCIES)
         \t$(HAMMER_EXEC) {env_confs} -p {power_sim_rtl_in} $(HAMMER_EXTRA_ARGS) --power_rundir {power_rtl_run_dir} --obj_dir {obj_dir} power{suffix}
 
-        {syn_out}: $(HAMMER_SYN_DEPENDENCIES) | {syn_deps}
+        {syn_out}: {syn_deps} $(HAMMER_SYN_DEPENDENCIES)
         \t$(HAMMER_EXEC) {env_confs} {p_syn_in} $(HAMMER_EXTRA_ARGS) --obj_dir {obj_dir} syn{suffix}
 
         {sim_syn_in}: {syn_out}
