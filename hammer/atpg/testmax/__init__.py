@@ -275,9 +275,18 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         """
         self.append("add_nofaults -module \"fakeram.*\"")
         if self.faults_file:
+            self.append(f'# reading faults from {self.faults_file} with force retain code')
             self.append(f'read_faults {self.faults_file} -force_retain_code')
         else:
-            self.append("add_faults -all")
+            # Args to "add_faults" from the Hammer config.
+            add_faults_args = self.get_setting("atpg.testmax.add_faults_args", nullvalue=[])  # type: List[str]
+            add_faults_args_str = " ".join([a for a in add_faults_args if a])
+            if add_faults_args_str:
+                self.append(f'# adding faults with args {add_faults_args_str}')
+                self.append(f"add_faults {add_faults_args_str}")
+            else:
+                self.append(f'# adding all faults for {self.top_module}')
+                self.append("add_faults -all")
 
     def generate_generation_reports(self) -> bool:
         """Generate reports after pattern generation (no fault-sim yet).

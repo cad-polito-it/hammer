@@ -472,7 +472,6 @@ atpg.inputs:
 
   create_patterns: bool
   fault_model: str
-  max_patterns: Optional[str]
 
   patterns_file: Optional[str]
 

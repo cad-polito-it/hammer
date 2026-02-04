@@ -22,6 +22,9 @@ atpg.testmax:
   build_rules: [] # To set the severity of rules during the build
   # type: List[dict]
 
+  add_faults_args: [] # Args for the add_faults command
+  # type: List[str]
+
   # Location of the binary.
   testmax_bin: "${synopsys.testmax_home}/${atpg.testmax.version}/bin/tmax2"
   testmax_bin_meta: lazysubst
