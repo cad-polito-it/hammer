@@ -33,6 +33,9 @@ vlsi.core:
   # Sim tool to use.
   sim_tool: str
 
+  # Fault Sim tool to use.
+  fsim_tool: str
+
   # Power analysis tool to use.
   power_tool: str
 
@@ -47,6 +50,10 @@ vlsi.core:
 
   # Maximum threads to use in a CAD tool invocation.
   max_threads: int
+
+  fsim:
+    # Maximum threads to use in a FSIM tool invocation.
+    max_threads: int
 
 vlsi.technology:
   # Placement site for macros. (Optional[str])
@@ -582,6 +589,137 @@ sim.inputs:
 sim.submit:
   command: str
   settings: list[dict[str, dict]]
+
+
+# Specific inputs for the simulation tool.
+fsim.inputs:
+  # Top RTL/Gate-level module for simulation
+  # type: str
+  top_module: Optional[str]
+
+  # Input files for simulation including verilog sources, testharness/testbench, etc.
+  # type: list[str]
+  input_files: list[str]
+
+  # Permissive options for the simulator generation
+  # type: list[str]
+  options: list[str]
+
+  # Define options passed when generating the simulation executable
+  # type: list[str]
+  defines: list[str]
+
+  # C compiler options used when generating the simulation executable
+  # type: list[str]
+  compiler_cc_opts: list[str]
+
+  # C linker options used when generating the simulation executable
+  # type: list[str]
+  compiler_ld_opts: list[str]
+
+  # Simulation timescale
+  # type: str
+  timescale: Optional[str]
+
+  # Benchmarks to run with the simulator executable
+  # type: list[str]
+  benchmarks: list[str]
+
+  # Maximum number of simulations to run in parallel.
+  # type: int
+  parallel_runs: int
+
+  # Hierarchical path to the top level instance of the "dut" from the testbench.
+  # type: str
+  tb_dut: str
+
+  # Name of the simulation testbench/test driver module
+  tb_name: str
+
+  # Simulation mode for simulation at different levels of the VLSI flow
+  # type: FlowLevel
+  level: str
+
+  # Path to a list of all registers in the design passed from synthesis or place-and-route
+  # type: str
+  all_regs: str
+
+  # Path to a list of all sequential standard cells in the design passed from synthesis or place-and-route
+  # type: str
+  seq_cells: str
+
+  # SDF File
+  # type: str
+  sdf_file: Optional[str]
+
+  # Simulation force value used for register initialization for gate level sims
+  # type: int
+  gl_register_force_value: int
+
+  # Turns time annotated sim on or off
+  # type: bool
+  timing_annotated: bool
+
+  # Flags to run with the simulator
+  # type: list[str]
+  execution_flags: list[str]
+
+  # Flags that are to be pre-pended to the simulator execution flags in "execution_flags"
+  # type: list[str]
+  execution_flags_prepend: list[str]
+
+  # Flags that are to be appended to the simulator execution flags in "execution_flags"
+  # type: list[str]
+  execution_flags_append: list[str]
+
+  # Determines whether or not the simulation executable that is generated with the above inputs will actually be executed with the given flags or if the executable will just be generated in the specified run directory.
+  # type: bool
+  execute_sim: bool
+
+  # Optional execution flags for the fault simulator
+  # type: list[str]
+  optional_execution_flags: Optional[list[str]]
+
+  # Determine the weights of all the parameters in the test and fault coverage
+  weights: Optional[list[dict[str, Any]]]
+
+  # Function to compute the test coverage
+  test_coverage: Optional[str]
+
+  # Function to compute the fault coverage
+  fault_coverage: Optional[str]
+
+  # Function to compute a custom coverage 
+  custom_coverage_functions: Optional[list[dict[str, str]]]
+
+  # Determines the fault locations and types
+  # type: Optional[dict[str, Any]]
+  # Formatted as: 
+  # [ (position_of_fault[s], {type_of_fault}, type_of_fault_location), ... ]
+  # e.g. [
+  # {location: "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.core.**", # Stuck-at
+  #               fault_type: "0,1", type_of_fault_location: "PORT", exclude: False},
+  #            "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.core.**", # Transition
+  #               fault_type: "R,F", type_of_fault_location: "PORT", exclude: False},
+  #            "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.core.**", # Transient
+  #               fault_type: "12542", type_of_fault_location: "PORT", exclude: False},
+  fault_locations: Optional[list[dict[str, Any]]]
+
+  # Strobe position if strobe file is not provided
+  # type: list[str]
+  # e.g. ["`TOPLEVEL.system.tile_prci_domain.element_reset_domain_rockettile.core", 
+  #       "`TOPLEVEL.system.tile_prci_domain.element_reset_domain_rockettile.fpuOpt"]
+  strobe_modules: Optional[list[str]] 
+
+  # Contraints for the sff file
+  # type: list[dict[str, Any]]
+  constraints: Optional[list[dict[str, Any]]]
+
+
+fsim.submit:
+  command: str
+  settings: list[dict[str, dict]]
+
 
 # Specific inputs for the power tool.
 # These may vary based on the specific tool plugin
