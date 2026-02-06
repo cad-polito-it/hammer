@@ -36,6 +36,9 @@ vlsi.core:
   # Fault Sim tool to use.
   fsim_tool: "hammer.fsim.mockfsim"
 
+  # ATPG tool to use.
+  atpg_tool: "hammer.atpg.testmax"
+
   # Power analysis tool to use.
   power_tool: "hammer.power.nop" # TODO: doesn't exist
 
@@ -731,6 +734,55 @@ technology.core:
     # Names of the power and ground rails of the standard cells
         power: ["VDD"]
         ground: ["VSS"]
+
+
+atpg.inputs:
+  top_module: null # Top Gate-level module for simulation
+  # type: str
+
+  input_files: [] # Input files for simulation including verilog sources, testharness/testbench, etc.
+  # type: List[str]
+
+  tb_dut: "dut" # Hierarchical path to the top level instance of the "dut" from the testbench.
+  # type: str
+
+  tb_name: "TestDriver" # Name of the simulation testbench/test driver module
+
+  level: "syn" # Simulation mode for simulation at different levels of the VLSI flow
+  # type: FlowLevel
+
+  all_regs: "" # Path to a list of all registers in the design passed from synthesis or place-and-route
+  # type: str
+
+  seq_cells: "" # Path to a list of all sequential standard cells in the design passed from synthesis or place-and-route
+  # type: str
+
+  create_patterns: True
+  # type: bool
+
+  fault_model: "saf"
+  # type: str
+
+  spf_file: ""
+  # type: str
+
+  patterns_file: null
+  # type: Optional[str]
+
+  faults_file: null
+  # type: Optional[str]
+
+  sdf_file: null # SDF File
+  # type: str
+  # Standard Delay Format file for use in timing annotated sims
+  # leave as null if not in use
+
+
+atpg.submit:
+  command: "${vlsi.submit.command}"
+  command_meta: lazysubst
+  settings: "vlsi.submit.settings"
+  settings_meta: lazycrossref
 
 # Specific inputs for the simulation tool.
 # These inputs will vary based on if the simulation is for RTL, post synthesis, or post PAR.

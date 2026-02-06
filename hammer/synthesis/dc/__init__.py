@@ -13,9 +13,9 @@ from hammer.vlsi import HammerSynthesisTool, HammerToolStep
 from hammer.logging import HammerVLSILogging
 import hammer.tech
 from hammer.tech import HammerTechnologyUtils
-from .synopsys_common import SynopsysCommon
+from hammer.common.synopsys import SynopsysTool
 
-class DC(HammerSynthesisTool, SynopsysCommon):
+class DC(HammerSynthesisTool, SynopsysTool):
     def fill_outputs(self) -> bool:
         # Check that the regs paths were written properly if the write_regs step was run
         self.output_seq_cells = self.all_cells_path
@@ -37,9 +37,11 @@ class DC(HammerSynthesisTool, SynopsysCommon):
         if not os.path.isfile(mapped_v):
             raise ValueError("Output mapped verilog %s not found" % (mapped_v))  # better error?
         self.output_files = [mapped_v]
-        # DC does not 
+        # DC does not
         self.output_sdc = self.post_synth_sdc
         self.sdf_file = self.output_sdf_path
+        output_spf = os.path.join(self.result_dir, self.top_module + "_test_protocol.spf")
+        self.spf_file = output_spf
         if self.ran_write_outputs:
             if not os.path.isfile(mapped_v):
                 raise ValueError("Output mapped verilog %s not found" % (mapped_v)) # better error?
@@ -49,6 +51,9 @@ class DC(HammerSynthesisTool, SynopsysCommon):
 
             if not os.path.isfile(self.output_sdf_path):
                 self.logger.warning("Output SDF %s not found" % (self.output_sdf_path))
+
+            if not os.path.isfile(self.spf_file):
+                self.logger.warning("Output SPF %s not found" % (self.spf_file))
         else:
             self.logger.info("Did not run write_outputs")
 
@@ -73,7 +78,7 @@ class DC(HammerSynthesisTool, SynopsysCommon):
     @ran_write_regs.setter
     def ran_write_regs(self, val: bool) -> None:
         self.attr_setter("_ran_write_regs", val)
-    
+
     @property
     def ran_write_outputs(self) -> bool:
         """The write_ouputs step sets this to True if it was run."""
@@ -90,22 +95,23 @@ class DC(HammerSynthesisTool, SynopsysCommon):
         outputs["synthesis.outputs.seq_cells"] = self.output_seq_cells
         outputs["synthesis.outputs.all_regs"] = self.output_all_regs
         outputs["synthesis.outputs.sdf_file"] = self.output_sdf_path
+        outputs["synthesis.outputs.spf_file"] = self.spf_file
         return outputs
-    
+
     @property
     def post_synth_sdc(self) -> Optional[str]:
         return os.path.join(self.result_dir, self.top_module + ".mapped.sdc")
-    
+
     @property
     def output_sdf_path(self) -> str:
-        return os.path.join(self.run_dir, "{top}.mapped.sdf".format(top=self.top_module)) 
+        return os.path.join(self.run_dir, "{top}.mapped.sdf".format(top=self.top_module))
 
     @property
     def steps(self) -> List[HammerToolStep]:
         steps = [
             self.init_environment,
             self.elaborate_design,
-            self.apply_constraints] 
+            self.apply_constraints]
         if self.get_setting("synthesis.dc.dft_insertion"):
             steps.append(self.insert_dft)
         steps.extend([self.optimize_design,
@@ -181,7 +187,7 @@ class DC(HammerSynthesisTool, SynopsysCommon):
 
         # Elaborate design
         self.append("elaborate %s" % self.top_module)
-        
+
         # Se the current design
         self.append("current_design %s" % self.top_module)
 
@@ -195,7 +201,7 @@ class DC(HammerSynthesisTool, SynopsysCommon):
         self.append("set_attribute $ram is_physical_black_box true" )
         self.append("set_dont_touch $ram")
         self.append("}")
-        
+
         return True
 
     def apply_constraints(self) -> bool:
@@ -266,7 +272,7 @@ write -format ddc -hierarchy -output \\
 write_sdc -nosplit \\
     {result_dir}/{design_name}.mapped.sdc
 """.format(result_dir=self.result_dir, design_name=self.top_module))
-        self.ran_write_outputs = True 
+        self.ran_write_outputs = True
         return True
 
     def generate_dft_reports(self) -> bool:
@@ -276,7 +282,7 @@ write_test_protocol -output {result_dir}/{design_name}_test_protocol.spf
         self.append("""
 write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
 """.format(result_dir=self.result_dir, design_name=self.top_module))
-        
+
         return True
 
     def write_regs(self) -> bool:
@@ -290,7 +296,7 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
     def _insert_test_points(self) -> str:
         """Insert Test Points for Rams"""
         return """
-set_testability_configuration -control_signal test_mode 
+set_testability_configuration -control_signal test_mode
 set_testability_configuration -target shadow_wrapper -isolate_elements  [get_instances -hierarchical \"*ram*\"]
 
 # get_shadow_wrapper_pins.tcl - get candidate shadow wrapper pins of a cell
@@ -363,12 +369,12 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
 
         self.append("set_scan_configuration -chain_count %d -clock_mixing mix_clocks" % self.get_setting("synthesis.dc.dft.scan.chain_count"))
 
-        # Enable DfT        
+        # Enable DfT
         if self.get_setting("synthesis.dc.insert_dft.bsd"):
-            use_bsd = "enable" 
+            use_bsd = "enable"
         else:
             use_bsd = "disable"
-        
+
         if self.get_setting("synthesis.dc.insert_dft.scan"):
             use_scan = "enable"
         else:
@@ -376,9 +382,9 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
 
         if self.get_setting("synthesis.dc.insert_dft.scan_compression"):
             use_scan_compression = "enable"
-        else: 
+        else:
             use_scan_compression = "disable"
-        
+
         self.append(f"set_dft_configuration -bsd {use_bsd} -scan {use_scan} -scan_compression {use_scan_compression} -ieee_1500 disable" )
         self.append("# set_dft_configuration -wrapper enable -fix_clock enable -fix_set enable -fix_reset enable ")
         self.append("# set_wrapper_configuration -class shadow_wrapper  -style shared -use_dedicated_wrapper_clock false -mix_cells true  -safe_state 1 -core [get_references -hierarchical \"*ram*\"] ")
@@ -395,20 +401,20 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
             active_state = reset_port.get("active_state")
             self.append(f"set_dft_signal -view existing_dft -type Reset -port \"{name}\"  -active_state {active_state}")
 
-        # Define/create ports 
+        # Define/create ports
         for port in self.get_setting("synthesis.dc.dft.scan.ports"):
             name      = port.get("name")
             direction = port.get("direction")
-            p_type    = port.get("type")    
-            existing  = port.get("exist")   
+            p_type    = port.get("type")
+            existing  = port.get("exist")
 
             if not existing:
                 self.append(f"create_port {name} -direction {direction}" )
                 view_type = "spec"
-            else: 
+            else:
                 view_type = "existing_dft"
             self.append(f"set_dft_signal -view {view_type} -type {p_type} -port \"{name}\"")
-    
+
         # Add JTAG signals
         self.append("set_dft_signal -view existing_dft -type TDI -port \"%s\" -hookup_pin \"iocell_jtag_TDI/pad\"" % self.get_setting("synthesis.dc.dft.jtag.tdi"))
         self.append("set_dft_signal -view existing_dft -type TRST -port \"%s\" -hookup_pin \"iocell_jtag_reset/pad\" -active_state 1" % self.get_setting("synthesis.dc.dft.jtag.reset"))
@@ -432,7 +438,7 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         # Preview all test structures to be inserted
         self.append("preview_dft -show all -test_wrappers all")
         self.append("report_dft_configuration")
-    
+
         # Insert DFT and write out design
         self.append("create_test_protocol")
         self.append("dft_drc -verbose")

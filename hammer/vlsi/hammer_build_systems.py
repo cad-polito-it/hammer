@@ -35,6 +35,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         - lvs
         - sim-rtl
         - fsim-rtl
+        - atpg-syn
         - sim-syn
         - fsim-syn
         - sim-par
@@ -134,7 +135,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         ####################################################################################
         ## Steps for {mod}
         ####################################################################################
-        .PHONY: sim-rtl{suffix} fsim-rtl{suffix} syn{suffix} syn-to-sim{suffix} sim-syn{suffix} syn-to-fsim{suffix} fsim-syn{suffix} syn-to-par{suffix} par{suffix} par-to-sim{suffix} sim-par{suffix} sim-par-to-power{suffix} par-to-power{suffix} power-par{suffix} power-rtl{suffix} sim-rtl-to-power{suffix} sim-syn-to-power{suffix} syn-to-power{suffix} power-syn{suffix} par-to-drc{suffix} drc{suffix} par-to-lvs{suffix} lvs{suffix} syn-to-formal{suffix} formal-syn{suffix} par-to-formal{suffix} formal-par{suffix} syn-to-timing{suffix} timing-syn{suffix} par-to-timing{suffix} timing-par{suffix}
+        .PHONY: sim-rtl{suffix} fsim-rtl{suffix} syn{suffix} syn-to-sim{suffix} syn-to-atpg{suffix} atpg-syn{suffix} sim-syn{suffix} syn-to-fsim{suffix} fsim-syn{suffix} syn-to-par{suffix} par{suffix} par-to-sim{suffix} sim-par{suffix} sim-par-to-power{suffix} par-to-power{suffix} power-par{suffix} power-rtl{suffix} sim-rtl-to-power{suffix} sim-syn-to-power{suffix} syn-to-power{suffix} power-syn{suffix} par-to-drc{suffix} drc{suffix} par-to-lvs{suffix} lvs{suffix} syn-to-formal{suffix} formal-syn{suffix} par-to-formal{suffix} formal-par{suffix} syn-to-timing{suffix} timing-syn{suffix} par-to-timing{suffix} timing-par{suffix}
 
         sim-rtl{suffix}          : {sim_rtl_out}
         syn{suffix}              : {syn_out}
@@ -146,6 +147,9 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
 
         syn-to-fsim{suffix}      : {fsim_syn_in}
         fsim-syn{suffix}         : {fsim_syn_out}
+
+        syn-to-atpg{suffix}      : {atpg_syn_in}
+        atpg-syn{suffix}         : {atpg_syn_out}
 
         syn-to-par{suffix}       : {par_in}
         par{suffix}              : {par_out}
@@ -189,6 +193,12 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
 
         {fsim_rtl_out}: {syn_deps} $(HAMMER_SIM_RTL_DEPENDENCIES)
         \t$(HAMMER_EXEC) {env_confs} {p_fsim_rtl_in} $(HAMMER_EXTRA_ARGS) --fsim_rundir {fsim_rtl_run_dir} --obj_dir {obj_dir} fsim{suffix}
+
+        {atpg_syn_in}: {syn_out}
+        \t$(HAMMER_EXEC) {env_confs} -p {syn_out} $(HAMMER_EXTRA_ARGS) -o {atpg_syn_in} --obj_dir {obj_dir} syn-to-atpg
+
+        {atpg_syn_out}: {atpg_syn_in} $(HAMMER_ATPG_SYN_DEPENDENCIES)
+        \t$(HAMMER_EXEC) {env_confs} -p {atpg_syn_in} $(HAMMER_EXTRA_ARGS) --atpg_rundir {atpg_syn_run_dir} --obj_dir {obj_dir} atpg{suffix}
 
         {power_sim_rtl_in}: {sim_rtl_out}
         \t$(HAMMER_EXEC) {env_confs} -p {sim_rtl_out} $(HAMMER_EXTRA_ARGS) -o {power_sim_rtl_in} --obj_dir {obj_dir} sim-to-power
@@ -281,7 +291,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         # These intentionally break the dependency graph, but allow the flexibility to rerun a step after changing a config.
         # Hammer doesn't know what settings impact synthesis only, e.g., so these are for power-users who "know better."
         # The HAMMER_EXTRA_ARGS variable allows patching in of new configurations with -p or using --to_step or --from_step, for example.
-        .PHONY: redo-sim-rtl{suffix} redo-fsim-rtl{suffix} redo-sim-rtl-to-power{suffix} redo-syn{suffix} redo-syn-to-sim{suffix} redo-syn-to-fsim{suffix} redo-syn-to-power{suffix} redo-sim-syn{suffix} redo-fsim-syn{suffix} redo-sim-syn-to-power{suffix} redo-syn-to-par{suffix} redo-par{suffix} redo-par-to-sim{suffix} redo-sim-par{suffix} redo-sim-par-to-power{suffix} redo-par-to-power{suffix} redo-power-par{suffix} redo-par-to-drc{suffix} redo-drc{suffix} redo-par-to-lvs{suffix} redo-lvs{suffix} redo-syn-to-formal{suffix} redo-formal-syn{suffix} redo-par-to-formal{suffix} redo-formal-par{suffix} redo-syn-to-timing{suffix} redo-timing-syn{suffix} redo-par-to-timing{suffix} redo-timing-par{suffix}
+        .PHONY: redo-sim-rtl{suffix} redo-fsim-rtl{suffix} redo-sim-rtl-to-power{suffix} redo-atpg-syn{suffix} redo-syn{suffix} redo-syn-to-sim{suffix} redo-syn-to-fsim{suffix} redo-syn-to-power{suffix} redo-sim-syn{suffix} redo-fsim-syn{suffix} redo-sim-syn-to-power{suffix} redo-syn-to-par{suffix} redo-par{suffix} redo-par-to-sim{suffix} redo-sim-par{suffix} redo-sim-par-to-power{suffix} redo-par-to-power{suffix} redo-power-par{suffix} redo-par-to-drc{suffix} redo-drc{suffix} redo-par-to-lvs{suffix} redo-lvs{suffix} redo-syn-to-formal{suffix} redo-formal-syn{suffix} redo-par-to-formal{suffix} redo-formal-par{suffix} redo-syn-to-timing{suffix} redo-timing-syn{suffix} redo-par-to-timing{suffix} redo-timing-par{suffix}
 
         redo-sim-rtl{suffix}:
         \t$(HAMMER_EXEC) {env_confs} {p_sim_rtl_in} $(HAMMER_EXTRA_ARGS) --sim_rundir {sim_rtl_run_dir} --obj_dir {obj_dir} sim{suffix}
@@ -294,6 +304,9 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
 
         redo-power-rtl{suffix}:
         \t$(HAMMER_EXEC) {env_confs} -p {power_sim_rtl_in} $(HAMMER_EXTRA_ARGS) --power_rundir {power_rtl_run_dir} --obj_dir {obj_dir} power{suffix}
+
+        redo-atpg-syn{suffix}:
+        \t$(HAMMER_EXEC) {env_confs} -p {atpg_syn_in} $(HAMMER_EXTRA_ARGS) --atpg_rundir {atpg_syn_run_dir} --obj_dir {obj_dir} atpg{suffix}
 
         redo-syn{suffix}:
         \t$(HAMMER_EXEC) {env_confs} {p_syn_in} $(HAMMER_EXTRA_ARGS) --obj_dir {obj_dir} syn{suffix}
@@ -392,6 +405,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         power_syn_run_dir = os.path.join(obj_dir, "power-syn-rundir")
         par_run_dir = os.path.join(obj_dir, "par-rundir")
         sim_par_run_dir = os.path.join(obj_dir, "sim-par-rundir")
+        atpg_syn_run_dir = os.path.join(obj_dir, "atpg-syn-rundir")
         power_par_run_dir = os.path.join(obj_dir, "power-par-rundir")
         drc_run_dir = os.path.join(obj_dir, "drc-rundir")
         lvs_run_dir = os.path.join(obj_dir, "lvs-rundir")
@@ -413,6 +427,8 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         sim_syn_out = os.path.join(sim_syn_run_dir, "sim-output-full.json")
         fsim_syn_in = os.path.join(obj_dir, "fsim-syn-input.json")
         fsim_syn_out = os.path.join(fsim_syn_run_dir, "fsim-output-full.json")
+        atpg_syn_in = os.path.join(obj_dir, "atpg-syn-input.json")
+        atpg_syn_out = os.path.join(atpg_syn_run_dir, "atpg-output-full.json")
         power_sim_syn_in = os.path.join(obj_dir, "power-sim-syn-input.json")
         power_syn_in = os.path.join(obj_dir, "power-syn-input.json")
         power_syn_out = os.path.join(power_syn_run_dir, "power-output-full.json")
@@ -447,6 +463,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
             power_sim_rtl_in=power_sim_rtl_in, power_rtl_out=power_rtl_out, power_rtl_run_dir=power_rtl_run_dir,
             sim_par_in=sim_par_in, sim_par_out=sim_par_out, sim_par_run_dir=sim_par_run_dir,
             p_syn_in=p_syn_in, syn_out=syn_out, par_in=par_in, par_out=par_out,
+            atpg_syn_in=atpg_syn_in, atpg_syn_out=atpg_syn_out, atpg_syn_run_dir=atpg_syn_run_dir,
             power_sim_syn_in=power_sim_syn_in, power_syn_in=power_syn_in, power_syn_out=power_syn_out, power_syn_run_dir=power_syn_run_dir,
             power_sim_par_in=power_sim_par_in, power_par_in=power_par_in, power_par_out=power_par_out, power_par_run_dir=power_par_run_dir,
             drc_in=drc_in, drc_out=drc_out, lvs_in=lvs_in, lvs_out=lvs_out,
@@ -469,6 +486,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
             power_syn_run_dir = os.path.join(obj_dir, "power-syn-" + node)
             par_run_dir = os.path.join(obj_dir, "par-" + node)
             sim_par_run_dir = os.path.join(obj_dir, "sim-par-" + node)
+            atpg_syn_run_dir = os.path.join(obj_dir, "atpg-syn-" + node)
             power_par_run_dir = os.path.join(obj_dir, "power-par-" + node)
             drc_run_dir = os.path.join(obj_dir, "drc-" + node)
             lvs_run_dir = os.path.join(obj_dir, "lvs-" + node)
@@ -490,6 +508,8 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
             sim_syn_out = os.path.join(sim_syn_run_dir, "sim-output-full.json")
             fsim_syn_in = os.path.join(obj_dir, "fsim-syn-{}-input.json".format(node))
             fsim_syn_out = os.path.join(fsim_syn_run_dir, "fsim-output-full.json")
+            atpg_syn_in = os.path.join(obj_dir, "atpg-syn-{}-input.json".format(node))
+            atpg_syn_out = os.path.join(atpg_syn_run_dir, "atpg-output.json")
             power_sim_syn_in = os.path.join(obj_dir, "power-sim-syn-{}-input.json".format(node))
             power_syn_in = os.path.join(obj_dir, "power-syn-{}-input.json".format(node))
             power_syn_out = os.path.join(power_syn_run_dir, "power-output-full.json")
@@ -544,6 +564,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
                 fsim_syn_in=fsim_syn_in, fsim_syn_out=fsim_syn_out, fsim_syn_run_dir=fsim_syn_run_dir,
                 sim_par_in=sim_par_in, sim_par_out=sim_par_out, sim_par_run_dir=sim_par_run_dir,
                 p_syn_in=p_syn_in, syn_out=syn_out, par_in=par_in, par_out=par_out,
+                atpg_syn_in=atpg_syn_in, atpg_syn_out=atpg_syn_out, atpg_syn_run_dir=atpg_syn_run_dir,
                 power_sim_syn_in=power_sim_syn_in, power_syn_in=power_syn_in, power_syn_out=power_syn_out, power_syn_run_dir=power_syn_run_dir,
                 power_sim_par_in=power_sim_par_in, power_par_in=power_par_in, power_par_out=power_par_out, power_par_run_dir=power_par_run_dir,
                 drc_in=drc_in, drc_out=drc_out, lvs_in=lvs_in, lvs_out=lvs_out,

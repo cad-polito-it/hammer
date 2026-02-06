@@ -124,7 +124,9 @@ def main(args) -> int:
                                         InterfaceVar("output_seq_cells", "str",
                                                      "path to output collection of all sequential standard cells in design"),
                                         InterfaceVar("sdf_file", "str",
-                                                     "output SDF file to be read for timing annotated gate level sims")
+                                                     "output SDF file to be read for timing annotated gate level sims"),
+                                        InterfaceVar("spf_file", "str",
+                                                     "output SPF file to be read for DRC by the ATPG tool")
                                         # TODO: model CAD junk
                                     ]
                                     )
@@ -228,6 +230,24 @@ def main(args) -> int:
                                   InterfaceVar("output_level", "str", "fault simulation flow level")
                               ]
                               )
+
+    HammerATPGTool = Interface(module="HammerATPGTool",
+                            filename="vlsi/hammer_vlsi_impl.py",
+                            inputs=[
+                                InterfaceVar("top_module", "str", "top design module"),
+                                InterfaceVar("input_files", "List[str]", "paths to input verilog files"),
+                                InterfaceVar("all_regs", "str", "path to list of all registers in the design with output pin"),
+                                InterfaceVar("seq_cells", "str", "path to collection of all sequential standard cells in design"),
+                                InterfaceVar("sdf_file", "Optional[str]", "optional SDF file needed for timing annotated gate level sims")
+                            ],
+                            outputs=[
+                                InterfaceVar("output_top_module", "str", "top RTL module"),
+                                InterfaceVar("output_tb_name", "str", "ATPG testbench name"),
+                                InterfaceVar("output_tb_dut", "str", "ATPG DUT instance name"),
+                                InterfaceVar("output_level", "str", "ATPG flow level")
+                            ]
+                            )
+
     HammerPowerTool = Interface(module="HammerPowerTool",
                                 filename="vlsi/hammer_vlsi_impl.py",
                                 inputs=[
@@ -296,6 +316,7 @@ def main(args) -> int:
     generate_interface(HammerSRAMGeneratorTool)
     generate_interface(HammerSimTool)
     generate_interface(HammerFaultSimTool)
+    generate_interface(HammerATPGTool)
     generate_interface(HammerPowerTool)
     generate_interface(HammerFormalTool)
     generate_interface(HammerTimingTool)

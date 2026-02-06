@@ -670,6 +670,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         os.makedirs(self.report_folder, exist_ok=True)
         benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
         subprocess.run("cp " +  os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name) + "/*.rpt " + self.report_folder, shell=True, check=False)
+        # TODO: fix the copy
         subprocess.run("cp " +  os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name) + "/*.sff " + self.report_folder, shell=True, check=False)
         subprocess.run("cp " +  self.run_dir + "/*.sff " + self.report_folder, shell=True, check=True)
 

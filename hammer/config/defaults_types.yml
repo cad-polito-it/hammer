@@ -27,6 +27,9 @@ vlsi.core:
   # SRAM Generator tool to use.
   sram_generator_tool: str
 
+  # ATPG tool to use
+  atpg_tool: str
+
   # Sim tool to use.
   sim_tool: str
 
@@ -440,6 +443,48 @@ technology.core:
     std_cell_supplies:
       power: list[str]
       ground: list[str]
+
+# Specific inputs for the simulation tool.
+atpg.inputs:
+  # Top Gate-level module for simulation
+  # type: str
+  top_module: Optional[str]
+
+  # Input files for simulation including verilog sources, testharness/testbench, etc.
+  # type: list[str]
+  input_files: list[str]
+
+  # Hierarchical path to the top level instance of the "dut" from the testbench.
+  # type: str
+  tb_dut: str
+
+  # Name of the simulation testbench/test driver module
+  tb_name: str
+
+  # Simulation mode for simulation at different levels of the VLSI flow
+  # type: FlowLevel
+  level: str
+
+  # Path to a list of all registers in the design passed from synthesis or place-and-route
+  # type: str
+  all_regs: str
+
+  # Path to a list of all sequential standard cells in the design passed from synthesis or place-and-route
+  # type: str
+  seq_cells: str
+
+  # SDF File
+  # type: str
+  sdf_file: Optional[str]
+
+  create_patterns: bool
+  fault_model: str
+
+  patterns_file: Optional[str]
+
+  faults_file: Optional[str]
+
+  spf_file: str
 
 # Specific inputs for the simulation tool.
 sim.inputs:

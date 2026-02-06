@@ -153,6 +153,7 @@ class CLIDriver:
         self.sram_generator_rundir = ""  # type: Optional[str]
         self.sim_rundir = ""  # type: Optional[str]
         self.fsim_rundir = ""  # type: Optional[str]
+        self.atpg_rundir = "" # type: Optional[str]
         self.power_rundir = "" # type: Optional[str]
         self.formal_rundir = "" # type: Optional[str]
         self.timing_rundir = "" # type: Optional[str]
@@ -209,6 +210,10 @@ class CLIDriver:
             check_CLIActionType_type(self.par_sim_action)
         else:
             self.par_sim_action = self.create_par_sim_action(self.par_action, self.sim_action) # type: CLIActionConfigType
+        if hasattr(self, "atpg_action"):
+            check_CLIActionType_type(self.atpg_action)
+        else:
+            self.atpg_action = self.create_atpg_action([])  # type: CLIActionConfigType
         if hasattr(self, "power_action"):
             check_CLIActionType_type(self.power_action)
         else:
@@ -273,6 +278,10 @@ class CLIDriver:
             "simulation": self.sim_action,
             "synthesis_to_sim": self.synthesis_to_sim_action,
             "synthesis-to-sim": self.synthesis_to_sim_action,
+            "synthesis_to_atpg": self.synthesis_to_atpg_action,
+            "synthesis-to-atpg": self.synthesis_to_atpg_action,
+            "syn_to_atpg": self.synthesis_to_atpg_action,
+            "syn-to-atpg": self.synthesis_to_atpg_action,
             "syn_to_sim": self.synthesis_to_sim_action,
             "syn-to-sim": self.synthesis_to_sim_action,
             "synthesis_sim": self.synthesis_sim_action,
@@ -291,6 +300,7 @@ class CLIDriver:
             "par-to-sim": self.par_to_sim_action,
             "par_sim": self.par_sim_action,
             "par-sim": self.par_sim_action,
+            "atpg": self.atpg_action,
             "power": self.power_action,
             "syn-to-power": self.syn_to_power_action,
             "syn_to_power": self.syn_to_power_action,
@@ -506,6 +516,14 @@ class CLIDriver:
         return self.create_action("fsim", hooks if len(hooks) > 0 else None,
                                   pre_action_func, post_load_func, post_run_func)
 
+    def create_atpg_action(self, custom_hooks: List[HammerToolHookAction],
+                          pre_action_func: Optional[Callable[[HammerDriver], None]] = None,
+                          post_load_func: Optional[Callable[[HammerDriver], None]] = None,
+                          post_run_func: Optional[Callable[[HammerDriver], None]] = None) -> CLIActionConfigType:
+        hooks = self.get_extra_sim_hooks() + custom_hooks  # ATPG typically ties into sim hooks
+        return self.create_action("atpg", hooks if len(hooks) > 0 else None,
+                                  pre_action_func, post_load_func, post_run_func)
+
     def create_power_action(self, custom_hooks: List[HammerToolHookAction],
                           pre_action_func: Optional[Callable[[HammerDriver], None]] = None,
                           post_load_func: Optional[Callable[[HammerDriver], None]] = None,
@@ -719,6 +737,26 @@ class CLIDriver:
                 if driver.dump_history:
                     dump_config_to_yaml_file(os.path.join(driver.fsim_tool.run_dir, "fsim-output-history.yml"),
                                             add_key_history(self.get_full_config(driver, output), key_history))
+            elif action_type == "atpg":
+                if not driver.load_atpg_tool(get_or_else(self.atpg_rundir, "")):
+                    return None
+                else:
+                    post_load_func_checked(driver)
+                assert driver.atpg_tool is not None, "load_atpg_tool was unsuccessful"
+                success, output = driver.run_atpg(
+                        driver.atpg_tool.get_tool_hooks() + \
+                        driver.tech.get_tech_sim_hooks(driver.atpg_tool.name) + \
+                        list(extra_hooks or []))
+                if not success:
+                    driver.log.error("ATPG tool did not succeed")
+                    return None
+                post_run_func_checked(driver)
+                dump_config_to_json_file(os.path.join(driver.atpg_tool.run_dir, "atpg-output.json"), output)
+                dump_config_to_json_file(os.path.join(driver.atpg_tool.run_dir, "atpg-output-full.json"),
+                                         self.get_full_config(driver, output))
+                if driver.dump_history:
+                    dump_config_to_yaml_file(os.path.join(driver.atpg_tool.run_dir, "atpg-output-history.yml"),
+                                            add_key_history(self.get_full_config(driver, output), key_history))
             elif action_type == "power":
                 if not driver.load_power_tool(get_or_else(self.power_rundir, "")):
                     return None
@@ -802,6 +840,15 @@ class CLIDriver:
             return output
 
         return action
+
+    def synthesis_to_atpg_action(self, driver: HammerDriver, append_error_func: Callable[[str], None]) -> Optional[dict]:
+        """Create a full config to run ATPG from synthesis outputs."""
+        atpg_input_only = HammerDriver.synthesis_output_to_atpg_input(driver.project_config)
+        if atpg_input_only is None:
+            driver.log.error("Input config does not appear to contain valid synthesis outputs")
+            return None
+        else:
+            return self.get_full_config(driver, atpg_input_only)
 
     def synthesis_to_par_action(self, driver: HammerDriver, append_error_func: Callable[[str], None]) -> Optional[dict]:
         """Create a full config to run the output."""
@@ -1454,6 +1501,7 @@ class CLIDriver:
         self.lvs_rundir = get_nonempty_str(args['lvs_rundir'])
         self.sim_rundir = get_nonempty_str(args['sim_rundir'])
         self.fsim_rundir = get_nonempty_str(args['fsim_rundir'])
+        self.atpg_rundir = get_nonempty_str(args['atpg_rundir'])
         self.power_rundir = get_nonempty_str(args['power_rundir'])
         self.formal_rundir = get_nonempty_str(args['formal_rundir'])
         self.timing_rundir = get_nonempty_str(args['timing_rundir'])
@@ -1512,6 +1560,9 @@ class CLIDriver:
                 HammerStartStopStep(step=start_step, inclusive=start_incl),
                 HammerStartStopStep(step=stop_step, inclusive=stop_incl)))
             driver.set_post_custom_fsim_tool_hooks(HammerTool.make_start_stop_hooks(
+                HammerStartStopStep(step=start_step, inclusive=start_incl),
+                HammerStartStopStep(step=stop_step, inclusive=stop_incl)))
+            driver.set_post_custom_atpg_tool_hooks(HammerTool.make_start_stop_hooks(
                 HammerStartStopStep(step=start_step, inclusive=start_incl),
                 HammerStartStopStep(step=stop_step, inclusive=stop_incl)))
             driver.set_post_custom_power_tool_hooks(HammerTool.make_start_stop_hooks(
@@ -1816,6 +1867,8 @@ class CLIDriver:
                             help='(optional) Directory to store simulation results in')
         parser.add_argument("--fsim_rundir", required=False, default="",
                             help='(optional) Directory to store fault simulation results in')
+        parser.add_argument("--atpg_rundir", required=False, default="",
+                            help='(optional) Directory to store ATPG results in')
         parser.add_argument("--power_rundir", required=False, default="",
                             help='(optional) Directory to store power results in')
         parser.add_argument("--formal_rundir", required=False, default="",
