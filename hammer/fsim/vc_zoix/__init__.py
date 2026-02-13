@@ -104,12 +104,11 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                         # 1. Create the new directory path string
                         # e.g., "my/results/MyCoreConfig/_sa1_/fft"
                         self.report_folder = os.path.join(self.output_folder,
-                                                    self.core, 
                                                     self.output_level,
                                                     self.fault_model, 
                                                     benchmark_name)
 
-                        self.results_folder = os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name)
+                        self.results_folder = os.path.join(self.run_dir, self.fault_model, benchmark_name)
                         
                         # 2. Create the directories if they don't exist
                         try:
@@ -167,13 +166,12 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         self.output_tb_dut = self.get_setting("fsim.inputs.tb_dut")
         self.strobe_file_name = self.get_setting("fsim.inputs.strobe_file_name")
         self.fault_model = self.get_setting("fsim.inputs.fault_model")
-        self.core = self.get_setting("fsim.inputs.core")
         self.clocks = self.get_setting("vlsi.inputs.clocks")
         benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
-        if not os.path.exists(os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name)):
-            os.makedirs(os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name))
+        if not os.path.exists(os.path.join(self.run_dir, self.fault_model, benchmark_name)):
+            os.makedirs(os.path.join(self.run_dir, self.fault_model, benchmark_name))
         if os.path.exists(self.strobe_file_name) == False:
-            self.strobe_file_name = os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name, "strobe.sv")
+            self.strobe_file_name = os.path.join(self.run_dir, self.fault_model, benchmark_name, "strobe.sv")
             os.makedirs(os.path.dirname(self.strobe_file_name), exist_ok=True)
             with open(self.strobe_file_name, "w") as f:
                 f.write("`ifndef TOPLEVEL\n")
@@ -199,29 +197,26 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         self.output_level = self.get_setting("fsim.inputs.level")
         self.campaign_tb_dut = self.get_setting("fsim.inputs.campaign_tb_dut")
         self.campaign_tcl = self.get_setting("fsim.inputs.campaign_tcl")
-        if os.path.exists(self.campaign_tcl) == False:
-            self.campaign_tcl = os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name, "fsim.tcl")
-            os.makedirs(os.path.dirname(self.campaign_tcl), exist_ok=True)
-            with open(self.campaign_tcl, "w") as f:
-                f.write("set_config -global_max_jobs 16\n")
-                f.write("set_config -fsim_std_args \"-fsim=limit+hyperactive+0\"\n")
-                f.write("\n")
-                f.write("## DYNAMIC RUNTIME - Do not modify this! The __init__.py checks for the args string to parse the required arguments\n")
-                f.write("create_testcases -name {\"test1\"} \\\n")
-                f.write("-exec simv \\\n")
-                f.write("-args \"\"\n")
-                f.write("\n")
-                f.write("# Start fault simulation\n")
-                f.write("fsim -verbose \n")
-                f.write("\n")
-                f.write("# Write results report\n")
-                f.write("report -campaign  chiptop0 -report fsim_out.rpt -overwrite -showfaultid\n")
-                f.write("report -campaign  chiptop0 -report fsim_out_hier.rpt -overwrite -hierarchical 0\n")
+        if os.path.exists(self.campaign_tcl):
+            tcl_run_dir_path = os.path.join(self.run_dir, self.fault_model, benchmark_name)
+            os.makedirs(tcl_run_dir_path, exist_ok=True)
+            tcl_run_dir = os.path.join(tcl_run_dir_path, "fsim.tcl")
+            with open(tcl_run_dir, "w") as f, open(self.campaign_tcl,"r") as template:
+                found_dynamic = False
+                for line in template:
+                    if "test1" in line:
+                        f.write(line.replace("test1",benchmark_name))
+                    else:
+                        f.write(line)
+            # Update the modified TCL
+            self.campaign_tcl = tcl_run_dir
+        else: 
+            self.logger.fatal(f"Base {self.campaign_tcl} does not exists! Please provide a valid path.")
         self.output_folder = self.get_setting("fsim.inputs.output_folder")
         self.fsim_generate_faults = int(self.get_setting("fsim.inputs.fsim_generate_faults"))
         self.standard_fault_format = self.get_setting("fsim.inputs.standard_fault_format")
         if os.path.exists(self.standard_fault_format) == False:
-            self.standard_fault_format = os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name, "gen_" + self.fault_model + "_" + self.output_tb_dut.split(".")[-1] + ".sff")
+            self.standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, "gen_" + self.fault_model + "_" + self.output_tb_dut.split(".")[-1] + ".sff")
             os.makedirs(os.path.dirname(self.standard_fault_format), exist_ok=True)
             with open(self.standard_fault_format, "w") as f:
                 f.write("# Weights\n")
@@ -419,7 +414,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         timescale = self.get_setting("fsim.inputs.timescale")
         options = self.get_setting("fsim.inputs.options", [])
         defines = self.get_setting("fsim.inputs.defines", [])
-        optional_execution_flags = self.get_setting("fsim.inputs.optional_execution_flags", [])
+        optional_elaboration_flags = self.get_setting("fsim.inputs.optional_elaboration_flags", [])
         access_tab_filename = self.access_tab_file_path
         tb_name = self.get_setting("fsim.inputs.tb_name")
         strobe_file_path = os.path.join(os.getcwd(), self.strobe_file_name)
@@ -499,7 +494,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         HammerVLSILogging.enable_colour = False
         HammerVLSILogging.enable_tag = False
 
-        # ToDO: distinguish between Gate and RTL - saf, tdf, tf
         args.append("-fsim")
         args.append("-fsim=dut:" + self.campaign_tb_dut)
 
@@ -512,7 +506,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         args.append("-fsim=class")
         
         args.append("+notimingcheck")
-        args.extend(optional_execution_flags)
+        args.extend(optional_elaboration_flags)
         
         # Remove "+rad" from arguments if present, VC-Z01X does not support it
         args = [arg for arg in args if arg != "+rad"]
@@ -614,7 +608,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
 
 
     def fcc(self) -> bool:
-        #ToDo Check for correct fault collapsing
         fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
         if not os.path.isfile(fcc_bin):
             self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
@@ -631,6 +624,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         "-overwrite"
         ]
 
+        additional_args = self.get_setting("fsim.vc_zoix.fcc_additional_args") 
+        args.extend(additional_args)
         HammerVLSILogging.enable_colour = False
         HammerVLSILogging.enable_tag = False
 
@@ -642,12 +637,30 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         return os.path.exists(os.path.join(self.run_dir, campaign_simv_daidir))
 
     def fcm(self) -> bool:
-        #ToDo Check for completed fsim
         fcm_bin = self.get_setting("fsim.vc_zoix.vc_fcm_bin")
         if not os.path.isfile(fcm_bin):
             self.logger.error("VC Z01X binary not found as expected at {0}".format(fcm_bin))
             return False
+        benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
+        # Check if already exist a FSDB from the previous test in the same campaign
 
+        fsdb_path = os.path.join(self.run_dir, "fcm_tsim_fsdb", self.campaign_tb_dut.split(".")[-1], f"{benchmark_name}.fsdb" )
+        if os.path.exists(fsdb_path):
+            # Remove test-related files to force the usage of a new testability database
+            fsdb_dir = os.path.join(self.run_dir, "fcm_tsim_fsdb", self.campaign_tb_dut.split(".")[-1])
+            # Iterate through all files and directories in the target directory
+            for item in os.listdir(fsdb_dir):
+                # Check if the basename contains the benchmark_name
+                if benchmark_name in os.path.basename(item):
+                    item_path = os.path.join(fsdb_dir, item)
+                    if os.path.exists(item_path):
+                        # Remove the file or directory
+                        if os.path.isdir(item_path):
+                            shutil.rmtree(item_path)  # Remove directory
+                            self.logger.warning(f"Removed directory: {item_path}")
+                        else:
+                            os.remove(item_path)  # Remove file
+                            self.logger.warning(f"Removed file: {item_path}")
         # Build args
         args = [
         fcm_bin,
@@ -666,15 +679,25 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
 
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
-        
-        os.makedirs(self.report_folder, exist_ok=True)
-        benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
-        subprocess.run("cp " +  os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name) + "/*.rpt " + self.report_folder, shell=True, check=False)
-        # TODO: fix the copy
-        subprocess.run("cp " +  os.path.join(self.run_dir, self.core, self.fault_model, benchmark_name) + "/*.sff " + self.report_folder, shell=True, check=False)
-        subprocess.run("cp " +  self.run_dir + "/*.sff " + self.report_folder, shell=True, check=True)
 
-        # ToDo: change with non-static naming which can be changed in the fsim.tcl file using the fsim.mk
-        return os.path.exists(os.path.join(self.report_folder, "fsim_out.rpt"))
+        self.logger.info("Fault simulation finished.")
+        
+        source_dir = os.path.join(self.run_dir, self.fault_model, benchmark_name)
+        os.makedirs(self.report_folder, exist_ok=True)
+        # Copy the entire directory tree to the report folder
+        shutil.copytree(source_dir, self.report_folder, dirs_exist_ok=True)
+        
+        return True
+
+    def handle_errors(self, output: str, code: int) -> bool:
+        """
+        Function to run on tool error (nonzero return code).
+        
+        :return: True if successful, False otherwise.
+        """
+        if code != 0:    
+            self.logger.error(output)
+        else:
+            self.logger.info(output)
 
 tool = VC_ZOIX
