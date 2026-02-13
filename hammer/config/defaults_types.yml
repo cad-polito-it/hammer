@@ -601,6 +601,10 @@ fsim.inputs:
   # type: list[str]
   input_files: list[str]
 
+  # Input files for gate level simulation/
+  # type: list[str]
+  syn_input_files: list[str]
+
   # Permissive options for the simulator generation
   # type: list[str]
   options: list[str]
@@ -676,9 +680,9 @@ fsim.inputs:
   # type: bool
   execute_sim: bool
 
-  # Optional execution flags for the fault simulator
+  # Optional elaboration flags for the fault simulator
   # type: list[str]
-  optional_execution_flags: Optional[list[str]]
+  optional_elaboration_flags: Optional[list[str]]
 
   # Determine the weights of all the parameters in the test and fault coverage
   weights: Optional[list[dict[str, Any]]]
