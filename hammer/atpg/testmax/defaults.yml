@@ -26,7 +26,7 @@ atpg.testmax:
   # type: List[str]
 
   # Location of the binary.
-  testmax_bin: "${synopsys.testmax_home}/${atpg.testmax.version}/bin/tmax2"
+  testmax_bin: "${synopsys.synopsys_home}/${atpg.testmax.version}/bin/tmax2"
   testmax_bin_meta: lazysubst
 
   # TestMax version to use.
