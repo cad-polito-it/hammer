@@ -104,7 +104,7 @@ class DC(HammerSynthesisTool, SynopsysTool):
 
     @property
     def output_sdf_path(self) -> str:
-        return os.path.join(self.run_dir, "{top}.mapped.sdf".format(top=self.top_module))
+        return os.path.join(self.result_dir, self.top_module + ".mapped.sdf")
 
     @property
     def steps(self) -> List[HammerToolStep]:
@@ -271,8 +271,10 @@ write -format ddc -hierarchy -output \\
     {result_dir}/{design_name}.mapped.ddc
 write_sdc -nosplit \\
     {result_dir}/{design_name}.mapped.sdc
-""".format(result_dir=self.result_dir, design_name=self.top_module))
-        self.ran_write_outputs = True
+write_sdf -version 2.1 -significant_digits 9 \\
+    {sdf_file_path}
+""".format(result_dir=self.result_dir, design_name=self.top_module, sdf_file_path = self.output_sdf_path))
+        self.ran_write_outputs = True 
         return True
 
     def generate_dft_reports(self) -> bool:
