@@ -21,3 +21,6 @@ fsim.vc_zoix:
   # Not all designs benefit from parallelized simulation.
   # Use at your own risk - it is known to be buggy!
   fgp: false
+
+  fcc_additional_args: [] # Options to add during the fault generation
+

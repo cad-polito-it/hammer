@@ -119,6 +119,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         self.append("set_build -merge noglobal_tie_propagate")
         self.append("set_build -nodelete_unused_gates")
+        # The following line is important for beign able to fault simulate stil patterns in VC_Z01X/Z01X
         self.append("set_build -add_celldefine_nets")
 
         # Setting the severity of rules
@@ -205,7 +206,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
                 self.append(f'set_atpg {set_atpg_args_str}')
 
             self.generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
-            self.generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_testbench')
+            self.generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_testbench.stil')
             self.append(f'# run_atpg -> generate patterns to {self.generated_pattern_path}')
 
             # Optional extra args to "run_atpg" from the Hammer config.
@@ -219,7 +220,8 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
             # 5a) Write and save test patterns (already covered by generated_pattern_path)
             self.append(f'write_patterns {self.generated_pattern_path} -internal -format stil -replace')
-
+            # Stil pattern suitable for VC_Z01X/Z01X
+            self.append(f'write_pattern {self.generated_pattern_path}.zoix -cellnames module  -format stil99 -replace -parallel -nocompaction -order_pins -nocompaction -internal_scancells')
             self.output_patterns = [self.generated_pattern_path]
 
             self.did_generate_patterns = True

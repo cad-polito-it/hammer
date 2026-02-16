@@ -908,6 +908,9 @@ fsim.inputs:
 
   input_files: [] # Input files for simulation including verilog sources, testharness/testbench, etc.
   # type: List[str]
+  
+  syn_input_files: [] # Input files for gate level simulation/
+  # type: list[str]
 
   options: [] # Permissive options for the simulator generation
   # These options will appear as plain string option additions when generating the simulation executable
@@ -1002,10 +1005,8 @@ fsim.inputs:
   campaign_simv_daidir: "" # Path to the run directory of vc-zoix
   
   fault_model: saf # Fault model (saf, tf, tdf)
-  
-  core: "" # Name of the core used
 
-  optional_execution_flags: []
+  optional_elaboration_flags: [] # Options to pass in the elaboration phase
 
   weights: [] # Determine the weights of all the parameters in the test and fault coverage
   
