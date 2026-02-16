@@ -202,7 +202,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             os.makedirs(tcl_run_dir_path, exist_ok=True)
             tcl_run_dir = os.path.join(tcl_run_dir_path, "fsim.tcl")
             with open(tcl_run_dir, "w") as f, open(self.campaign_tcl,"r") as template:
-                found_dynamic = False
                 for line in template:
                     if "test1" in line:
                         f.write(line.replace("test1",benchmark_name))
