@@ -58,9 +58,9 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 exec_match = re.search(r'(\s*-exec\s+)(.*?)(\s*\\?\s*)$', line.rstrip())
                 
                 # 3. Check for -report lines
-                # Regex: (\s-report\s+)(fsim_out(?:_hier)?\.rpt)
-                # This captures the flag (group 1) and the specific filenames (group 2)
-                report_match = re.search(r'(\s-report\s+)(.*?(fsim_out(?:_hier)?\.rpt))', line)
+                # Regex: -report\s+([^\s]+)
+                # This captures the specific filenames (group 2)
+                report_match = re.search(r'-report\s+([^\s]+)', line)
 
                 if match:
                     args_found = True
@@ -89,13 +89,14 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 elif report_match:
                     # --- Handle -report ---
                     reports_found += 1
-                    prefix = line[:report_match.start(2)] 
-                
-                    # Get just the base filename, e.g., 'fsim_out.rpt'
-                    report_filename = report_match.group(3) 
+                    # Prefix: Everything before the captured file name
+                    prefix = line[:report_match.start(1)]
                     
-                    suffix = line[report_match.end(2):]
-
+                    # Get just the base filename, e.g., 'fsim_out.rpt'
+                    report_filename = report_match.group(1)
+                
+                    # Suffix: Everything after the captured file name
+                    suffix = line[report_match.end(1):]
                     # Split the basename into name and extension ("program_name", ".riscv")
                     benchmark_name, extension = os.path.splitext(os.path.basename(self.benchmarks[0]))
 
@@ -194,6 +195,12 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 f.write("end\n")
                 f.write("\n")
                 f.write("endmodule\n")
+        else:  
+            # Use a custom fstrobe file 
+            internal_strobe_file = os.path.join(self.run_dir, self.fault_model, benchmark_name, "strobe.sv")
+            os.makedirs(os.path.dirname(internal_strobe_file), exist_ok=True)
+            shutil.copy(self.strobe_file_name,internal_strobe_file)
+            self.strobe_file_name = os.path.join(self.run_dir, self.fault_model, benchmark_name, "strobe.sv")
         self.output_level = self.get_setting("fsim.inputs.level")
         self.campaign_tb_dut = self.get_setting("fsim.inputs.campaign_tb_dut")
         self.campaign_tcl = self.get_setting("fsim.inputs.campaign_tcl")
@@ -274,6 +281,12 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                             f.write("    NA ~ (" + fl.fault_type + ") {" + fl.type_of_fault_location + " \"" + fl.location + "\" }\n")
                     f.write("\n")
                 f.write("}\n")
+        else: 
+            # Use a custom sff file 
+            internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, "gen_" + self.fault_model + "_" + self.output_tb_dut.split(".")[-1] + ".sff")
+            os.makedirs(os.path.dirname(internal_standard_fault_format), exist_ok=True)
+            shutil.copy(self.standard_fault_format, internal_standard_fault_format)
+            self.standard_fault_format = internal_standard_fault_format
         self.report_folder = ""
         return True
 
@@ -313,7 +326,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
 
     @property
     def run_fsim_tcl_path(self) -> str:
-        return os.path.join(self.run_dir, "ffsim.tcl")
+        return os.path.join(self.run_dir, "fsim.tcl")
 
     @property
     def fault_report_path(self) -> str:
