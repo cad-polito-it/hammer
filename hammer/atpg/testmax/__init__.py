@@ -336,6 +336,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         report_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults.fau')
         self.append(f"report_faults -all > {report_faults_path}")
 
+        # Useful for importing fault list in other tools 
+        report_faults_uncollapsed_path = os.path.join(base_dir, f'{self.top_module}{suffix}_uncollapsed_faults.fau')
+        self.append(f"report_faults -uncollapsed -all > {report_faults_uncollapsed_path}")
+
         report_faults_per_clock_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_per_clock_domain.fau')
         self.append(f"report_faults -all -per_clock_domain > {report_faults_per_clock_path}")
 
@@ -347,6 +351,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         report_faults_summary = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_summary.rpt')
         self.append(f"report_faults -summary > {report_faults_summary}")
+
+        report_faults_hierarchical = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_hierarchical.rpt')
+        self.append(f"report_faults -level 1000 1 > {report_faults_hierarchical}")
 
         return True
 
