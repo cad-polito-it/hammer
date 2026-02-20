@@ -283,7 +283,11 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 f.write("}\n")
         else: 
             # Use a custom sff file 
-            internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, "gen_" + self.fault_model + "_" + self.output_tb_dut.split(".")[-1] + ".sff")
+            filename, extension = os.path.splitext(os.path.basename(self.standard_fault_format))
+            if self.standard_fault_format.endswith("sff"):
+                internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, filename + "_" + self.fault_model + "_" + self.output_tb_dut.split(".")[-1] + ".sff")
+            else:
+                internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, filename + "_" + self.fault_model + "_" + self.output_tb_dut.split(".")[-1] + extension)
             os.makedirs(os.path.dirname(internal_standard_fault_format), exist_ok=True)
             shutil.copy(self.standard_fault_format, internal_standard_fault_format)
             self.standard_fault_format = internal_standard_fault_format
@@ -585,20 +589,22 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         return os.path.exists(self.campaign_tcl)
 
     def fgen(self) -> bool:
+        campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
+        sff_report_path = os.path.join(self.run_dir, self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff")
+        
+        fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
+        if not os.path.isfile(fcc_bin):
+            self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
+            return False
+            
         if (self.fsim_generate_faults == 1):
-            fcc_bin = self.get_setting("fsim.vc_zoix.vc_fcc_bin")
-            if not os.path.isfile(fcc_bin):
-                self.logger.error("VC Z01X binary not found as expected at {0}".format(fcc_bin))
-                return False
-            campaign_simv_daidir = self.get_setting("fsim.inputs.campaign_simv_daidir")
-
             # Build args
             args = [
             fcc_bin,
             "-full64",
             "-daidir " + campaign_simv_daidir,
             "-sff " + self.standard_fault_format,
-            "-report " + os.path.join(self.run_dir, self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"),
+            "-report " + sff_report_path,
             "-campaign " + self.campaign_tb_dut.split(".")[-1],
             "-collapse off",
             "-overwrite"
@@ -613,10 +619,58 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             HammerVLSILogging.enable_colour = True
             HammerVLSILogging.enable_tag = True
 
-            return os.path.exists(os.path.join(self.run_dir, self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"))
         else: 
-            shutil.copyfile(self.standard_fault_format, os.path.join(self.run_dir, self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"))
-            return os.path.exists(os.path.join(self.run_dir, self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"))
+            if self.standard_fault_format.endswith("sff"):
+                shutil.copyfile(self.standard_fault_format, sff_report_path)
+            elif self.standard_fault_format.endswith("fau"):
+                # We need to convert to an SFF from Tetramax fault list
+                # TODO (franout): temporary fix for appending full hierarchical path to faults location from TestMax (+dut+add+<string>  NYI in VC Z01X)
+                dut_path = self.campaign_tb_dut
+
+                with open(self.standard_fault_format,"r") as fault_list:
+                    lines = fault_list.readlines()
+                with open(self.standard_fault_format,"w") as fault_list:
+                    for line in lines:
+                        if not line.strip():
+                            fault_list.write(line)
+                            continue
+                        columns = line.split()
+
+                        if len(columns) >=3:
+                            # Add dut path and replace VC-Z01X separator with TestMax separator
+                            columns[2] = f'{dut_path.replace(".","/")}/{columns[2]}'
+        
+                        updated_line = "   ".join(columns)
+                        fault_list.write(updated_line + "\n")
+        
+                # Build args
+                args = [
+                fcc_bin,
+                "-full64",
+                "-daidir " + campaign_simv_daidir,
+                "-faultlist " + self.standard_fault_format,
+                "-format" , "tetramax",
+                "-report " + sff_report_path,
+                "-prune", "off" , # Avoid fault pruning
+                "-campaign " + self.campaign_tb_dut.split(".")[-1],
+                # TODO (franout) : to be implemented "-dut_path " + self.campaign_tb_dut,
+                "-collapse off",
+                "-overwrite"
+                ]
+                self.logger.info("Converting fault list format from TestMax to VC-Z01X")
+                HammerVLSILogging.enable_colour = False
+                HammerVLSILogging.enable_tag = False
+
+                # Generate a simulator
+                self.run_executable(args, cwd=self.run_dir)
+
+                HammerVLSILogging.enable_colour = True
+                HammerVLSILogging.enable_tag = True
+                # Update with the new sff path 
+                self.standard_fault_format = sff_report_path
+            else:
+                self.logger.error(f"Fault format conversion for {self.standard_fault_format} is not supported")
+        return os.path.exists(sff_report_path)
 
 
     def fcc(self) -> bool:
