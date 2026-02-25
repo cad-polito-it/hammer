@@ -191,7 +191,14 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.append(f'# top_module = {self.top_module}')
 
         # 4) Prepare for ATPG: set options and create fault list
-        self.append(f'set_faults -model {self.atpg_fault_model}')
+        # Optional extra args to "set_faults".
+        set_faults_args = self.get_setting("atpg.testmax.set_faults_args", nullvalue=[])  # type: List[str]
+        set_faults_args_str = " ".join([a for a in set_faults_args if a])
+
+        if set_faults_args_str:
+            self.append(f'set_faults -model {self.atpg_fault_model} {set_faults_args_str}')
+        else:
+            self.append(f'set_faults -model {self.atpg_fault_model}')
         self._load_faults()
 
         # if self.pattern_format is not None:
@@ -335,13 +342,6 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         report_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults.fau')
         self.append(f"report_faults -all > {report_faults_path}")
-
-        # Useful for importing fault list in other tools 
-        report_faults_uncollapsed_path = os.path.join(base_dir, f'{self.top_module}{suffix}_uncollapsed_faults.fau')
-        self.append(f"report_faults -uncollapsed -all > {report_faults_uncollapsed_path}")
-
-        report_faults_per_clock_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_per_clock_domain.fau')
-        self.append(f"report_faults -all -per_clock_domain > {report_faults_per_clock_path}")
 
         report_au_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_au_faults.fau')
         self.append(f"report_faults -class AU > {report_au_faults_path}")
