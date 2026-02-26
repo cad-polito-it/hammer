@@ -343,6 +343,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         report_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults.fau')
         self.append(f"report_faults -all > {report_faults_path}")
 
+        report_faults_per_clock_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_per_clock_domain.fau')
+        self.append(f"report_faults -all -per_clock_domain > {report_faults_per_clock_path}")
+
         report_au_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_au_faults.fau')
         self.append(f"report_faults -class AU > {report_au_faults_path}")
 
