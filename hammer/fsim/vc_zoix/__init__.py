@@ -156,6 +156,53 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
 
         return True
 
+    def net_name_fix_zoix(self, string: str) -> str:
+        tmp = string.replace("\\","")
+        tmp = tmp.replace("/",".")
+        return tmp.replace(" ","")
+
+
+    def read_slack_info(self, input_file: str) -> {}:
+        nets={}
+        pattern = r'^\s*([-+]?\d*\.?\d+|\*)\s+([-+]?\d*\.?\d+|\*)\s+(.*)$'
+        with open(input_file,"r") as fin:
+            line=fin.readline()
+            while line:
+                line=line.strip()
+                match =  re.match(pattern,line)
+                if match :
+                    max_rise, max_fall, point = match.groups()
+                    # Convert max_rise and max_fall to float if they are not '*'
+                    max_rise_value = abs(float(max_rise)) if max_rise != '*' else float(self.clocks[0].get('period'))
+                    max_fall_value = abs(float(max_fall)) if max_fall != '*' else float(self.clocks[0].get('period'))
+                    nets[self.output_top_module+"."+point.replace("/",".")] = {"R" : max_rise_value, "F" :max_fall_value}
+                line=fin.readline()   
+        return nets
+
+
+    def fuse_slack_with_sff(self, slack_file: str, fault_list: str, output_file: str) -> bool:
+        nets={}
+        nets=read_slack_info(slack_file)
+        pattern = r'\s*<\s*([\d\s]+)\s*>\s*(\w+)\s*(\w)\s*\{PORT\s+"([^"]+)"\}'
+
+        with open(fault_list,"r") as fault_list_fin, open(output_file,"w") as fault_list_out:
+            line=fault_list_fin.readline()
+            while line:
+                processed_line = line
+                match = re.match(pattern,line.rstrip())
+                if match :
+                    faultInfo,status, value, port = match.groups()
+                    port = net_name_fix_zoix(port)
+                    if port in nets:
+                        timing = "("+str(nets[port][value])+"ns)"
+                        processed_line =" ".join(["\t <"+faultInfo+"> ",status, value, timing ,"{ PORT \"" + port+ "\"}\n" ])
+                    else : 
+                        print("ERROR! missing fault placement " + str(port) + " in slack file")
+                        return False
+                fault_list_out.write(processed_line)
+                line=fault_list_fin.readline()
+        return True
+
     def tool_config_prefix(self) -> str:
         return "fsim.vc_zoix"
 
@@ -289,7 +336,11 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             else:
                 internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, filename + "_" + self.fault_model + "_" + self.output_tb_dut.split(".")[-1] + extension)
             os.makedirs(os.path.dirname(internal_standard_fault_format), exist_ok=True)
-            shutil.copy(self.standard_fault_format, internal_standard_fault_format)
+            if self.fault_model == "sdf":
+                self.slack_file = self.get_setting("fsim.inputs.slack_file")
+                self.fuse_slack_with_sff(internal_standard_fault_format, self.slack_file, self.standard_fault_format)
+            else:
+                shutil.copy(self.standard_fault_format, internal_standard_fault_format)
             self.standard_fault_format = internal_standard_fault_format
         self.report_folder = ""
         return True
