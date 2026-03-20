@@ -1,0 +1,358 @@
+#  generic_generator.py
+#  Generic SRAM Generator tool.
+#
+#  See LICENSE for licence details.
+
+from hammer.vlsi import HammerSRAMGeneratorTool, SRAMParameters, MMMCCorner
+from hammer.tech import ExtraLibrary, Library
+from typing import List, Dict, Optional
+import os 
+import math
+
+class GenericSRAMGenerator(HammerSRAMGeneratorTool):
+    
+    @property
+    def post_synth_sdc(self) -> Optional[str]:
+        return None
+
+    def tool_config_prefix(self) -> str:
+        return "sram_generator.generic_generator"
+
+    def version_number(self, version: str) -> int:
+        return 0
+
+    def generate_sram(self, params: SRAMParameters, corner: MMMCCorner) -> ExtraLibrary:
+        tech_node = self.get_setting("vlsi.core.node")
+        sram_name = "fakeram{tech_node}_{fam}_{d}x{w}".format(tech_node = tech_node,
+                      fam=params.family,d=params.depth, w=params.width)
+        
+        tech_cache_dir = os.path.abspath(self.technology.cache_dir)
+  
+        if params.family == "1RW" or  params.family == "1R1W" or params.family =="3R2mW" :
+            fam_code = params.family
+        else:
+            self.logger.error(
+              "Generic SRAM generator does not support family:{f}".format(
+              f=params.family))
+
+        # Generate Verilog file from template
+        verilog_path = "{t}/{n}.v".format(t=tech_cache_dir, n=sram_name)
+
+        with open(verilog_path, 'w') as f:
+            if params.family == "1R1W" :
+                specify = ""
+                for specify_j in range(0, params.width):
+                    for specify_i in range(0, 2):
+                        if specify_i == 0:
+                            specify += "$setuphold(posedge ce_in, %s R0_data[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s W0_data[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                        else:
+                            specify += "$setuphold(posedge ce_in, %s R0_data[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s W0_data[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                    specify += "(ce_in => R0_data[%d]) = 0;\n" % (specify_j)
+                    specify += "(ce_in => W0_data[%d]) = 0;\n" % (specify_j)
+                for specify_k in range(0, math.ceil(math.log2(params.depth))):
+                    for specify_i in range(0, 2):
+                        if specify_i == 0:
+                            specify += "$setuphold(posedge ce_in, %s R0_addr[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s W0_addr[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                        else:
+                            specify += "$setuphold(posedge ce_in, %s R0_addr[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s W0_addr[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                f.write("""
+`timescale 1ns/100fs
+module {NAME} (
+  input  [{NUMADDR}-1:0] R0_addr,
+  input  [{NUMADDR}-1:0] W0_addr,
+  input                   R0_clk,
+  input                   W0_clk,
+  output [{WORDLENGTH}-1:0] R0_data,
+  input  [{WORDLENGTH}-1:0] W0_data,
+  
+  input                   R0_en,
+  input                   W0_en
+);
+
+  reg [{WORDLENGTH}-1:0] ram [0:{NUMWORDS}-1];
+
+  wire [{NUMADDR}-1:0] ram_R_0_addr;
+  wire [{WORDLENGTH}-1:0] ram_R_0_data;
+  wire [{WORDLENGTH}-1:0] ram_W_0_data;
+  wire [{NUMADDR}-1:0] ram_W_0_addr;
+  wire  ram_W_0_mask;
+  wire  ram_W_0_en;
+  reg [{NUMADDR}-1:0] ram_R_0_addr_pipe_0;
+  assign ram_R_0_addr = ram_R_0_addr_pipe_0;
+  assign ram_R_0_data = ram[ram_R_0_addr];
+  assign ram_W_0_data = W0_data;
+  assign ram_W_0_addr = W0_addr;
+  assign ram_W_0_mask = 1'h1;
+  assign ram_W_0_en = W0_en ;
+  assign R0_data = ram_R_0_data;
+
+  always @(posedge W0_clk) begin
+    if (ram_W_0_en & ram_W_0_mask) begin
+      ram[ram_W_0_addr] <= ram_W_0_data;
+    end
+  end
+  always @(posedge R0_clk) begin
+    if (R0_en ) begin
+      ram_R_0_addr_pipe_0 <= R0_addr;
+    end
+  end
+
+`ifndef SYNTHESIS
+`ifdef  RANDOMIZE_REG_INIT 
+
+integer i;
+initial begin
+    for (i = 0; i < {NUMWORDS}; i = i + 1) begin
+        ram[i] = {{{WORDLENGTH}{{$urandom()}}}};
+end 
+ram_R_0_addr_pipe_0 = {{{WORDLENGTH}{{$urandom()}}}};
+end // initial
+`endif // RANDOMIZE
+`endif // SYNTHESIS
+endmodule
+""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
+           RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
+            elif params.family == "2RmW":
+                specify = ""
+                for specify_j in range(0, params.width):
+                    for specify_i in range(0, 2):
+                        if specify_i == 0:
+                            specify += "$setuphold(posedge ce_in, %s R0_data[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s W0_data[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                        else:
+                            specify += "$setuphold(posedge ce_in, %s R0_data[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s W0_data[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                    specify += "(ce_in => R0_data[%d]) = 0;\n" % (specify_j)
+                    specify += "(ce_in => W0_data[%d]) = 0;\n" % (specify_j)
+                for specify_k in range(0, math.ceil(math.log2(params.depth))):
+                    for specify_i in range(0, 2):
+                        if specify_i == 0:
+                            specify += "$setuphold(posedge ce_in, %s R0_addr[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s W0_addr[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                        else:
+                            specify += "$setuphold(posedge ce_in, %s R0_addr[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s W0_addr[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                f.write("""
+`timescale 1ns/100fs
+module {NAME} (
+  input  [{NUMADDR}-1:0] R0_addr,
+  input  [{NUMADDR}-1:0] W0_addr,
+  input                   R0_clk,
+  input                   W0_clk,
+  output [{WORDLENGTH}-1:0] R0_data,
+  input  [{WORDLENGTH}-1:0] W0_data,
+  input                   W0_wmask,
+  input                   R0_en,
+  input                   W0_en
+);
+
+  reg [{WORDLENGTH}-1:0] ram [0:{NUMWORDS}-1];
+
+  wire [{NUMADDR}-1:0] ram_R_0_addr;
+  wire [{WORDLENGTH}-1:0] ram_R_0_data;
+  wire [{WORDLENGTH}-1:0] ram_W_0_data;
+  wire [{NUMADDR}-1:0] ram_W_0_addr;
+  wire  ram_W_0_mask;
+  wire  ram_W_0_en;
+  reg [{NUMADDR}-1:0] ram_R_0_addr_pipe_0;
+  assign ram_R_0_addr = ram_R_0_addr_pipe_0;
+  assign ram_R_0_data = ram[ram_R_0_addr];
+  assign ram_W_0_data = W0_data;
+  assign ram_W_0_addr = W0_addr;
+  assign ram_W_0_en = W0_en ;
+  assign R0_data = ram_R_0_data;
+  assign ram_W_0_mask = W0_wmask;
+
+  always @(posedge W0_clk) begin
+    if (ram_W_0_en & ram_W_0_mask) begin
+      ram[ram_W_0_addr] <= ram_W_0_data;
+    end
+  end
+  always @(posedge R0_clk) begin
+    if (R0_en ) begin
+      ram_R_0_addr_pipe_0 <= R0_addr;
+    end
+  end
+
+`ifndef SYNTHESIS
+`ifdef  RANDOMIZE_REG_INIT 
+
+integer i;
+initial begin
+    for (i = 0; i < {NUMWORDS}; i = i + 1) begin
+        ram[i] = {{{WORDLENGTH}{{$urandom()}}}};
+end 
+ram_R_0_addr_pipe_0 = {{{WORDLENGTH}{{$urandom()}}}};
+end // initial
+`endif // RANDOMIZE
+`endif // SYNTHESIS
+endmodule
+""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
+           RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
+            elif params.family == "1RW":
+                specify = ""
+                for specify_j in range(0, params.width):
+                    for specify_i in range(0, 2):
+                        if specify_i == 0:
+                            specify += "$setuphold(posedge ce_in, %s R0_data[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s W0_data[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                        else:
+                            specify += "$setuphold(posedge ce_in, %s R0_data[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                            specify += "$setuphold(posedge ce_in, %s W0_data[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                    specify += "(ce_in => R0_data[%d]) = 0;\n" % (specify_j)
+                    specify += "(ce_in => W0_data[%d]) = 0;\n" % (specify_j)
+                for specify_k in range(0, math.ceil(math.log2(params.depth))):
+                    for specify_i in range(0, 2):
+                        if specify_i == 0:
+                            specify += "$setuphold(posedge ce_in, %s R0_addr[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s W0_addr[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                        else:
+                            specify += "$setuphold(posedge ce_in, %s R0_addr[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                            specify += "$setuphold(posedge ce_in, %s W0_addr[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                f.write("""
+`timescale 1ns/100fs
+module {NAME} (
+  input  [{NUMADDR}-1:0] RW0_addr,
+  input                   RW0_clk,
+  input  [{WORDLENGTH}-1:0] RW0_wdata,
+  output [{WORDLENGTH}-1:0] RW0_rdata,
+  input                   RW0_en,
+  input                   RW0_wmode,
+  input                   RW0_wmask
+);
+
+  reg [{WORDLENGTH}-1:0] ram [0:{NUMWORDS}-1];
+
+  wire                    ram_RW_0_r_en;
+  wire [{NUMADDR}-1:0]    ram_RW_0_r_addr;
+  wire [{WORDLENGTH}-1:0] ram_RW_0_r_data;
+  wire [{WORDLENGTH}-1:0] ram_RW_0_w_data;
+  wire [{NUMADDR}-1:0]    ram_RW_0_w_addr;
+  wire                    ram_RW_0_w_mask;
+  wire                    ram_RW_0_w_en;
+  reg                     ram_RW_0_r_en_pipe_0;
+  reg [{NUMADDR}-1:0]     ram_RW_0_r_addr_pipe_0;
+
+  assign ram_RW_0_r_en   = ram_RW_0_r_en_pipe_0;
+  assign ram_RW_0_r_addr = ram_RW_0_r_addr_pipe_0;
+  assign ram_RW_0_r_data = ram[ram_RW_0_r_addr];
+
+  assign ram_RW_0_w_data = RW0_wdata;
+  assign ram_RW_0_w_addr = RW0_addr;
+  assign ram_RW_0_w_mask = RW0_wmask;
+  assign ram_RW_0_w_en   = RW0_en & RW0_wmode;
+
+  assign RW0_rdata = ram_RW_0_r_data;
+
+  always @(posedge RW0_clk) begin
+    if (ram_RW_0_w_en & ram_RW_0_w_mask) begin
+      ram[ram_RW_0_w_addr] <= ram_RW_0_w_data;
+    end
+    ram_RW_0_r_en_pipe_0 <= RW0_en & ~RW0_wmode;
+    if (RW0_en & ~RW0_wmode) begin
+      ram_RW_0_r_addr_pipe_0 <= RW0_addr;
+    end
+  end
+
+`ifndef SYNTHESIS
+`ifdef  RANDOMIZE_REG_INIT 
+
+integer i;
+initial begin
+    for (i = 0; i < {NUMWORDS}; i = i + 1) begin
+        ram[i] = {{{WORDLENGTH}{{$urandom()}}}};
+end 
+ram_RW_0_r_en_pipe_0 = {{{WORDLENGTH}{{$urandom()}}}};
+ram_RW_0_r_addr_pipe_0 = {{{WORDLENGTH}{{$urandom()}}}};
+end // initial
+`endif // RANDOMIZE
+`endif // SYNTHESIS
+endmodule
+""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
+           RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
+            elif params.family == "3R2mW":
+                mask_width = 8
+                # Generate timing checks for all 5 ports (3 Read, 2 Write)
+                specify = ""
+                # Add checks for Read Ports 0, 1, 2 and Write Ports 0, 1
+                for p_type, p_count in [("R", 3), ("W", 2)]:
+                    for i in range(p_count):
+                        # Data setup/hold
+                        for bit in range(params.width):
+                            port_name = "{}{}_data".format(p_type, i)
+                            specify += "$setuphold(posedge {}{}_clk, posedge {}, 0, 0, NOTIFIER);\n".format(p_type, i, port_name)
+                        # Address setup/hold
+                        for bit in range(math.ceil(math.log2(params.depth))):
+                            port_name = "{}{}_addr".format(p_type, i)
+                            specify += "$setuphold(posedge {}{}_clk, posedge {}, 0, 0, NOTIFIER);\n".format(p_type, i, port_name)
+
+                f.write("""
+`timescale 1ns/100fs
+module {NAME} (
+  // Read Ports
+  input  [{NUMADDR}-1:0] R0_addr, R1_addr, R2_addr,
+  input                  R0_clk,  R1_clk,  R2_clk,
+  input                  R0_en,   R1_en,   R2_en,
+  output [{WORDLENGTH}-1:0] R0_data, R1_data, R2_data,
+
+  // Write Ports
+  input  [{NUMADDR}-1:0] W0_addr, W1_addr,
+  input                  W0_clk,  W1_clk,
+  input                  W0_en,   W1_en,
+  input  [{WORDLENGTH}-1:0] W0_data, W1_data,
+  input  [{MASKLENGTH}-1:0] W0_wmask, 
+  input  [{MASKLENGTH}-1:0] W1_wmask
+);
+
+  reg [{WORDLENGTH}-1:0] ram [0:{NUMWORDS}-1];
+
+  // Read Logic (Pipelined)
+  reg [{NUMADDR}-1:0] r0_addr_pipe, r1_addr_pipe, r2_addr_pipe;
+  
+  always @(posedge R0_clk) if (R0_en) r0_addr_pipe <= R0_addr;
+  always @(posedge R1_clk) if (R1_en) r1_addr_pipe <= R1_addr;
+  always @(posedge R2_clk) if (R2_en) r2_addr_pipe <= R2_addr;
+
+  assign R0_data = ram[r0_addr_pipe];
+  assign R1_data = ram[r1_addr_pipe];
+  assign R2_data = ram[r2_addr_pipe];
+
+  // Write Logic
+  always @(posedge W0_clk) begin
+    ram[W0_addr][(W0_wmask * 8) +: 8] <= W0_data[(W0_wmask * 8) +: 8];
+  end
+
+  always @(posedge W1_clk) begin
+    ram[W1_addr][(W1_wmask * 8) +: 8] <= W1_data[(W1_wmask * 8) +: 8];
+  end
+
+`ifndef SYNTHESIS
+`ifdef RANDOMIZE_REG_INIT 
+integer i;
+initial begin
+    for (i = 0; i < {NUMWORDS}; i = i + 1) ram[i] = {{{RAND_WIDTH}{{$urandom()}}}};
+    r0_addr_pipe = {{{RAND_WIDTH}{{$urandom()}}}};
+    r1_addr_pipe = {{{RAND_WIDTH}{{$urandom()}}}};
+    r2_addr_pipe = {{{RAND_WIDTH}{{$urandom()}}}};
+end
+`endif
+`endif
+endmodule
+""".format(NUMADDR=math.ceil(math.log2(params.depth)), 
+           NUMWORDS=params.depth, 
+           WORDLENGTH=params.width, 
+           NAME=sram_name,
+           RAND_WIDTH=math.ceil(params.width / 32), 
+           MASKLENGTH=mask_width,
+           specify=specify))
+
+
+
+        return ExtraLibrary(prefix=None,
+               library=Library(name = sram_name, verilog_sim=verilog_path))
+
+tool = GenericSRAMGenerator
