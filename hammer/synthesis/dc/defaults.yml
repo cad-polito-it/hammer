@@ -46,7 +46,15 @@ synthesis.spyglass:
   # Spyglass version to use.
   version: "O-2018.06-SP4"
 
+synthesis.library_compiler:
+  # Location of the Library compiler binary 
+  lc_bin: "${synopsys.synopsys_home}/${synthesis.library_compiler.version}/bin/lc_shell"
+  lc_bin_meta: lazysubst # we want later overrides to be able to affect lc_bin
 
+  # Library compiler version to use.
+  version: "O-2018.06-SP4"
+
+  
 # Common synopsys settings.
 # TODO: move these to a shared file between ICC and DC.
 synopsys:
