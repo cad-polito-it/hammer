@@ -1,0 +1,11 @@
+# Configuration options and defaults for PrimeTime.
+# The values specified in this file are the defaults.
+
+timing.primetime:
+  # Location of the binary
+  primetime_bin: "${synopsys.synopsys_home}/${timing.primetime.version}/bin/primetime"
+  primetime_bin_meta: lazysubst # we want later overrides to be able to affect this
+
+  # PrimeTime version to use
+  # Used to locate the binary 
+  version: "PT_2022.12"

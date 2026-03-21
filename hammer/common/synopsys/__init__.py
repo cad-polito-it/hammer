@@ -147,6 +147,59 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
             return ""
         else:
             return synopsys_rm_tarball
+    
+    def map_power_spec_name(self) -> str:
+        """
+        Return the CPF or UPF flag name for Cadence tools.
+        """
+
+        power_spec_type = str(self.get_setting("vlsi.inputs.power_spec_type"))  # type: str
+        power_spec_arg = ""  # type: str
+        if power_spec_type == "upf":
+            power_spec_arg = "upf"
+        else:
+            self.logger.error(
+                "Invalid power specification type '{tpe}'; only 'upf' supported".format(tpe=power_spec_type))
+            return ""
+        return power_spec_arg
+
+    def create_power_spec(self) -> str:
+        """
+        Generate a power specification file for Cadence tools.
+        """
+
+        power_spec_type = str(self.get_setting("vlsi.inputs.power_spec_type"))  # type: str
+        power_spec_contents = ""  # type: str
+        power_spec_mode = str(self.get_setting("vlsi.inputs.power_spec_mode"))  # type: str
+        if power_spec_mode == "empty":
+            return ""
+        elif power_spec_mode == "auto":
+            if power_spec_type == "upf":
+                power_spec_contents = self.upf_power_specification
+        elif power_spec_mode == "manual":
+            power_spec_contents = str(self.get_setting("vlsi.inputs.power_spec_contents"))
+        else:
+            self.logger.error("Invalid power specification mode '{mode}'; using 'empty'.".format(mode=power_spec_mode))
+            return ""
+
+        # Write the power spec contents to file and include it
+        power_spec_file = os.path.join(self.run_dir, "power_spec.{tpe}".format(tpe=power_spec_type))
+        self.write_contents_to_path(power_spec_contents, power_spec_file)
+
+        return power_spec_file
+
+    def generate_power_spec_commands(self) -> List[str]:
+        """
+        Generate commands to load a power specification for Cadence tools.
+        """
+
+        power_spec_file = self.create_power_spec()
+        power_spec_arg = self.map_power_spec_name()
+
+        return ["load_upf  {path}".format(path=power_spec_file),
+                f"{power_spec_arg}",
+                "commit_power_intent"]
+
     def child_modules_tcl(self) -> str:
         """
         Dumps a list of child instance paths and their ilm directories.
