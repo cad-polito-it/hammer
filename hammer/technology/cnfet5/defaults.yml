@@ -1,0 +1,23 @@
+# Settings for CNFET5 technology to be overridden by project
+technology.cnfet5:
+
+# Set some defaults for this technology.
+
+vlsi:
+  core.node: 5 # Technology dimension (CNFET 5nm-class)
+  inputs:
+    supplies: # Supply voltages
+      VDD: "0.8 V"
+      GND: "0 V"
+    mmmc_corners: [{
+      "name": "tt0p8v25c", 
+      "type": "typical",
+      "voltage": "0.8 V",
+      "temp": "25 C"
+    }] # mmmc corners config for CNFET5
+  technology:
+    placement_site: "std_place" # The standard site name defined in cnfet5_rvt_1p9m.lef
+
+technology.core:
+  stackup: "cnfet5_9metal_stack" # Matches the name used in the tech JSON
+  std_cell_rail_layer: "metal1" # Standard cells in this library use M1 for power/ground rails

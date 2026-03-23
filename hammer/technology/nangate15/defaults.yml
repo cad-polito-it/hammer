@@ -1,0 +1,25 @@
+# Settings for Nangate15 technology to be overriden by project
+technology.nangate45:
+
+# Set some defaults for this technology.
+# NOTE: there are no tapcells in nangate45
+# NOTE: there is only 1 TT corner
+vlsi:
+  core.node: 15 # Technology dimension
+  inputs:
+    supplies: # Supply voltages
+      VDD: "0.8 V"
+      GND: "0 V"
+    mmmc_corners: [{
+      "name": "PVT_0P80V_25C",
+      "type": "setup",
+      "voltage": "0.80 V",
+      "temp": "25 C"
+    }] # mmmc corners config. 
+  
+technology.core:
+  stackup: "nangate15_3Ma_2Mb_2Mc_2Md" # This key should exist in the stackups list in the tech json
+  std_cell_rail_layer: "metal1" # This should specify the TOPMOST metal layer the 
+  # standard cells use for power rails
+  # Note that this is not usually stackup specific; 
+  # it is based on the std cell libraries themselves

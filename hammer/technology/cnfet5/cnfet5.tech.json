@@ -1,0 +1,111 @@
+{
+  "name": "CNFET5 Library",
+  "grid_unit": "0.001",
+  "installs": [{
+    "id": "cnfet5",
+    "path": "technology.cnfet5.install_dir"
+  }],
+
+  "drc_decks": [],
+  "additional_drc_text": "",
+  
+  "lvs_decks": [],
+  "additional_lvs_text": "", 
+
+  "libraries": [
+    {
+      "milkyway_techfile" : "cnfet5/tech/milkyway/cnfet5_1p9m_mw.tf",
+      "provides": [{"lib_type": "milkyway_techfile"}]
+    },
+    {
+      "lef_file": "cnfet5/LEF/CNFET5_Cell_calibrated_2024_12_12.lef",
+      "verilog_sim" : "cnfet5/VERILOG/cnfet5.v",
+      "provides": [{"lib_type": "technology"}]
+    },
+    {
+      "nldm_library_file" : "cnfet5//LIB/NLDM/CNFET5_nldm_calibred_TT.db",
+      "nldm_liberty_file": "cnfet5//LIB/NLDM/CNFET5_nldm_calibred_TT.lib",
+      "lef_file": "cnfet5/LEF/CNFET5_Cell_calibrated_2024_12_12.lef",
+      "corner": {
+        "nmos": "typical",
+        "pmos": "typical",
+        "temperature": "25 C"
+      },
+      "supplies": {
+        "VDD": "0.8 V",
+        "GND": "0 V"
+      },
+      "provides": [{
+        "lib_type": "stdcell",
+        "vt": "rvt"
+      }]
+    }
+  ],
+  "stackups": [{
+    "name": "cnfet5_9metal_stack",
+    "grid_unit": "0.0005", 
+"metals": [
+  {
+    "name": "metal1", "index": 1, "direction": "horizontal", 
+    "min_width": 0.05, "max_width": 1000.0, "pitch": 0.1, 
+    "offset": 0.05, "power_strap_widths_and_spacings": [], "grid_unit": "0.0005"
+  },
+  {
+    "name": "metal2", "index": 2, "direction": "vertical", 
+    "min_width": 0.05, "max_width": 1000.0, "pitch": 0.1, 
+    "offset": 0.05, "power_strap_widths_and_spacings": [], "grid_unit": "0.0005"
+  },
+  {
+    "name": "metal3", "index": 3, "direction": "horizontal", 
+    "min_width": 0.05, "max_width": 1000.0, "pitch": 0.1, 
+    "offset": 0.05, "power_strap_widths_and_spacings": [], "grid_unit": "0.0005"
+  },
+  {
+    "name": "metal4", "index": 4, "direction": "vertical", 
+    "min_width": 0.1, "max_width": 1000.0, "pitch": 0.2, 
+    "offset": 0.1, "power_strap_widths_and_spacings": [], "grid_unit": "0.0005"
+  },
+  {
+    "name": "metal5", "index": 5, "direction": "horizontal", 
+    "min_width": 0.1, "max_width": 1000.0, "pitch": 0.2, 
+    "offset": 0.1, "power_strap_widths_and_spacings": [], "grid_unit": "0.0005"
+  },
+  {
+    "name": "metal6", "index": 6, "direction": "vertical", 
+    "min_width": 0.1, "max_width": 1000.0, "pitch": 0.2, 
+    "offset": 0.1, "power_strap_widths_and_spacings": [], "grid_unit": "0.0005"
+  },
+  {
+    "name": "metal7", "index": 7, "direction": "horizontal", 
+    "min_width": 0.2, "max_width": 1000.0, "pitch": 0.4, 
+    "offset": 0.2, "power_strap_widths_and_spacings": [], "grid_unit": "0.0005"
+  },
+  {
+    "name": "metal8", "index": 8, "direction": "vertical", 
+    "min_width": 0.2, "max_width": 1000.0, "pitch": 0.4, 
+    "offset": 0.2, "power_strap_widths_and_spacings": [], "grid_unit": "0.0005"
+  },
+  {
+    "name": "metal9", "index": 9, "direction": "horizontal", 
+    "min_width": 0.4, "max_width": 1000.0, "pitch": 0.8, 
+    "offset": 0.4, "power_strap_widths_and_spacings": [], "grid_unit": "0.0005"
+  }
+  ]
+  }],
+  "sites": [
+    {"name": "std_place", "x": 0.08, "y": 0.96} 
+  ],
+  "physical_only_cells_list": [
+    ""
+  ],
+  "special_cells": [
+    {"cell_type": "tapcell", "name": [""]},
+    {"cell_type": "stdfiller", "name": [""]},
+    {"cell_type": "tiehicell", "name": [""]},
+    {"cell_type": "tielocell", "name": [""]},
+    {"cell_type": "driver", "name": ["BUF_X1", "BUF_X2", "BUF_X4", "BUF_X8","BUF_X12","BUF_X16"], "input_ports": ["I"], "output_ports": ["Z"]},
+    {"cell_type": "ctsbuffer", "name": ["CLKBUF_X1", "CLKBUF_X2", "CLKBUF_X4","CLKBUF_X8","CLKBUF_X12","CLKBUF_X16"]},
+    {"cell_type": "decap", "name": [""]},
+    {"cell_type": "endcap", "name": [""]}
+  ]
+}

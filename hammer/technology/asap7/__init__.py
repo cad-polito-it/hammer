@@ -13,7 +13,7 @@ from types import new_class
 from typing import NamedTuple, List, Optional, Tuple, Dict, Set, Any
 
 from hammer.tech import HammerTechnology
-from hammer.vlsi import HammerTool, HammerPlaceAndRouteTool, HammerDRCTool, MentorCalibreTool, TCLTool, HammerToolHookAction
+from hammer.vlsi import HammerTool, HammerPlaceAndRouteTool, HammerSynthesisTool, HammerDRCTool, MentorCalibreTool, TCLTool, HammerToolHookAction
 
 class ASAP7Tech(HammerTechnology):
     """
@@ -167,14 +167,15 @@ class ASAP7Tech(HammerTechnology):
                 '    }'])
             gclk_func = "CLK & IQ"
             lib_dir = os.path.join(self.get_setting("technology.asap7.stdcell_install_dir"), "LIB/NLDM")
-            old_libs = glob.glob(os.path.join(lib_dir, "*SEQ*"))
+            old_libs = glob.glob(os.path.join(lib_dir, "*"))
             new_libs = list(map(lambda l: os.path.join(self.cache_dir, "LIB/NLDM", os.path.basename(l)), old_libs))
 
             for olib, nlib in zip(old_libs, new_libs):
                 # Use gzip and sed directly rather than gzip python module
                 # Add the statetable to ICG cells
                 # Change function to state_function for pin GCLK
-                subprocess.call(["gzip -cd {olib} | sed '/ICGx*/a {stbl}' | sed '/CLK & IQ/s/function/state_function/g' | gzip > {nlib}".format(olib=olib, stbl=statetable_text, nlib=nlib)], shell=True)
+                nlib = nlib.replace(".7z","").replace(".gz","")
+                subprocess.call(["7z x {olib} -so | sed '/ICGx*/a {stbl}' | sed '/CLK & IQ/s/function/state_function/g' > {nlib}".format(olib=olib, stbl=statetable_text, nlib=nlib)], shell=True)
         except:
             os.rmdir(os.path.join(self.cache_dir, "LIB/NLDM"))
             os.rmdir(os.path.join(self.cache_dir, "LIB"))
@@ -194,6 +195,50 @@ class ASAP7Tech(HammerTechnology):
             HammerTool.make_replacement_hook("generate_drc_run_file", asap7_generate_drc_run_file)
             ]}
         return hooks.get(tool_name, [])
+
+    def get_tech_syn_hooks(self, tool_name:str) ->List[HammerToolHookAction]:
+        hooks = {"dc": [
+            HammerTool.make_persistent_hook(asap7_generate_db_files)
+            ]}
+        return hooks.get(tool_name, [])
+
+def asap7_generate_db_files(ht: HammerTool) -> bool:
+    assert isinstance(ht, HammerSynthesisTool)
+    library_file = {}
+    convert_tcl_file = ht.script_dir + "/fromLib2db.tcl"
+    convert_tcl = ""
+    ## Get liberty files 
+    for liberty in ht.timing_liberty:
+        if "SRAM" not in liberty:
+            lib_name = os.path.splitext(os.path.basename(liberty))[0]
+            db = os.path.join( os.path.dirname(liberty) ,lib_name + ".db")
+            ## Update the tech json with DB files
+            library_file[liberty] = db
+            convert_tcl += f"read_lib {liberty}\n write_lib -f db -output {db} {lib_name}\n\n"
+    
+    new_libraries = []
+
+    for lib in ht.technology.config.libraries:
+        # Check if this library has the liberty file set but lacks the library file
+        if lib.nldm_liberty_file is not None and "SRAM" not in lib.nldm_liberty_file:
+            lib_path = lib.nldm_liberty_file.replace("cache", ht.technology.cache_dir)
+            updated_lib = lib.copy(update={'nldm_library_file': library_file[lib_path]})
+            new_libraries.append(updated_lib)
+        else:
+            new_libraries.append(lib)
+    
+    convert_tcl += "quit"
+
+    with open(convert_tcl_file, "w") as f:
+        f.write(convert_tcl)
+
+    # Re-assign the updated list back to the technology config
+    ht.technology.config.libraries = new_libraries
+    ## Generate DB files 
+    lc_bin = os.path.basename(ht.get_setting("synthesis.library_compiler.lc_bin"))
+    result = subprocess.call([f"{lc_bin} -f {convert_tcl_file} "], shell=True)
+
+    return result == 0
 
 def asap7_innovus_settings(ht: HammerTool) -> bool:
     assert isinstance(ht, HammerPlaceAndRouteTool), "Innovus settings only for par"

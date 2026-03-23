@@ -97,6 +97,12 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
         return self.technology.read_libs(
             [hammer.tech.filters.timing_db_filter],
             HammerTechnologyUtils.to_plain_item)
+    @property
+    def timing_liberty(self) -> List[str]:
+        # Gather/load libraries.
+        return self.technology.read_libs(
+            [hammer.tech.filters.liberty_lib_filter],
+            HammerTechnologyUtils.to_plain_item)
 
     @property
     def milkyway_lib_dirs(self) -> List[str]:

@@ -1,0 +1,116 @@
+{
+  "name": "Nangate15 Library",
+  "grid_unit": "0.001",
+  "installs": [{
+    "id": "nangate15",
+    "path": "technology.nangate15.install_dir"
+  }],
+
+  "drc_decks": [],
+  "additional_drc_text": "",
+  
+  "lvs_decks": [],
+  "additional_lvs_text": "", 
+
+  "libraries": [
+    {
+    "ccs_library_file" : "nangate15/CCS/NanGate_15nm_OCL_typical_conditional_ccs.db",
+    "ccs_liberty_file" : "nangate15/CCS/NanGate_15nm_OCL_typical_conditional_ccs.lib",
+    "nldm_liberty_file": "nangate15/NLDM/NanGate_15nm_OCL_typical_conditional_nldm.lib",
+    "nldm_library_file": "nangate15/NLDM/NanGate_15nm_OCL_typical_conditional_nldm.db",
+    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_functional.v",
+    "corner": {
+      "nmos": "typical",
+      "pmos": "typical",
+      "temperature": "25 C"
+    },
+    "supplies": {
+      "VDD": "0.80 V",
+      "GND": "0 V"
+    },
+    "provides": [{
+      "lib_type": "stdcell",
+      "vt": "RVT"
+    }]
+    },
+
+
+    {
+    "ccs_library_file" : "nangate15/CCS/NanGate_15nm_OCL_low_temp_conditional_ccs.db",
+    "ccs_liberty_file" : "nangate15/CCS/NanGate_15nm_OCL_low_temp_conditional_ccs.lib",
+    "nldm_liberty_file": "nangate15/NLDM/NanGate_15nm_OCL_low_temp_conditional_nldm.lib",
+    "nldm_library_file": "nangate15/NLDM/NanGate_15nm_OCL_low_temp_conditional_nldm.db",
+    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_functional.v",
+    "corner": {
+      "nmos": "low",
+      "pmos": "low",
+      "temperature": "25 C"
+    },
+    "supplies": {
+      "VDD": "0.80 V",
+      "GND": "0 V"
+    },
+    "provides": [{
+      "lib_type": "stdcell",
+      "vt": "RVT"
+    }]
+    },
+
+    {
+    "ccs_library_file" : "nangate15/CCS/NanGate_15nm_OCL_fast_conditional_ccs.db",
+    "ccs_liberty_file" : "nangate15/CCS/NanGate_15nm_OCL_fast_conditional_ccs.lib",
+    "nldm_liberty_file": "nangate15/NLDM/NanGate_15nm_OCL_fast_conditional_nldm.lib",
+    "nldm_library_file": "nangate15/NLDM/NanGate_15nm_OCL_fast_conditional_nldm.db",
+    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_functional.v",
+    "corner": {
+      "nmos": "fast",
+      "pmos": "fast",
+      "temperature": "25 C"
+    },
+    "supplies": {
+      "VDD": "0.80 V",
+      "GND": "0 V"
+    },
+    "provides": [{
+      "lib_type": "stdcell",
+      "vt": "RVT"
+    }]
+    }
+  ],
+  "stackups": [{
+    "name": "nangate15_10metal_stack",
+    "grid_unit": "0.001", 
+    "metals": [{
+      "name": "metal1", "index": 1, "direction": "horizontal", 
+      "min_width": 0.028, "max_width": 1.0, "pitch": 0.064, 
+      "offset": 0.0, "power_strap_widths_and_spacings": [], "grid_unit": "0.001"
+    },{
+      "name": "metal2", "index": 2, "direction": "vertical", 
+      "min_width": 0.028, "max_width": 1.0, "pitch": 0.064, 
+      "offset": 0.0, "power_strap_widths_and_spacings": [], "grid_unit": "0.001"
+    },{
+      "name": "metal3", "index": 3, "direction": "horizontal", 
+      "min_width": 0.028, "max_width": 1.0, "pitch": 0.064, 
+      "offset": 0.0, "power_strap_widths_and_spacings": [], "grid_unit": "0.001"
+    },{
+      "name": "metal4", "index": 4, "direction": "vertical", 
+      "min_width": 0.028, "max_width": 1.0, "pitch": 0.064, 
+      "offset": 0.0, "power_strap_widths_and_spacings": [], "grid_unit": "0.001"
+    }]
+  }],
+  "sites": [
+    { "name": "unit", "x": 0.16, "y": 0.576 } 
+  ],
+  "physical_only_cells_list": [
+    "FILL_X1", "FILL_X2", "FILL_X4", "FILL_X8","FILL_X16", "FILLTIE"
+  ],
+  "special_cells": [
+    {"cell_type": "tapcell", "name": [""]},
+    {"cell_type": "stdfiller", "name": ["FILL_X1", "FILL_X2", "FILL_X4", "FILL_X8","FILL_X16", "FILLTIE"]},
+    {"cell_type": "tiehicell", "name": ["TIEH"]},
+    {"cell_type": "tielocell", "name": ["TIEL"]},
+    {"cell_type": "driver", "name": ["BUF_X1", "BUF_X2", "BUF_X4", "BUF_X8","BUF_X12","BUF_X16"], "input_ports": ["I"], "output_ports": ["Z"]},
+    {"cell_type": "ctsbuffer", "name": ["CLKBUF_X1", "CLKBUF_X2", "CLKBUF_X4", "CLKBUF_X8", "CLKBUF_X12", "CLKBUF_X16"]},
+    {"cell_type": "decap", "name": ["DCAP_X1"]}
+  ]
+}
