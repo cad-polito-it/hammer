@@ -381,6 +381,26 @@ class HammerSynthesisTool(HammerTool):
             raise TypeError("sdf_file must be a str")
         self.attr_setter("_sdf_file", value)
 
+
+    @property
+    def spf_file(self) -> str:
+        """
+        Get the output SPF file to be read for DRC by the ATPG tool.
+
+        :return: The output SPF file to be read for DRC by the ATPG tool.
+        """
+        try:
+            return self.attr_getter("_spf_file", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the output SPF file to be read for DRC by the ATPG tool yet")
+
+    @spf_file.setter
+    def spf_file(self, value: str) -> None:
+        """Set the output SPF file to be read for DRC by the ATPG tool."""
+        if not (isinstance(value, str)):
+            raise TypeError("spf_file must be a str")
+        self.attr_setter("_spf_file", value)
+
     ### END Generated interface HammerSynthesisTool ###
 
 
@@ -1904,6 +1924,10 @@ class HammerFaultSimTool(HammerTool):
 
 class HammerATPGTool(HammerTool):
 
+    @abstractmethod
+    def fill_outputs(self) -> bool:
+        pass
+
     def export_config_outputs(self) -> Dict[str, Any]:
         outputs = deepdict(super().export_config_outputs())
         outputs["atpg.outputs.output_top_module"] = self.output_top_module
@@ -1920,6 +1944,26 @@ class HammerATPGTool(HammerTool):
     ### Generated interface HammerATPGTool ###
     ### DO NOT MODIFY THIS CODE, EDIT generate_properties.py INSTEAD ###
     ### Inputs ###
+
+    @property
+    def fault_model(self) -> str:
+        """
+        Get the fault model used for fault simulation.
+
+        :return: The fault model used for fault simulation.
+        """
+        try:
+            return self.attr_getter("_fault_model", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the fault model used for fault simulation yet")
+
+    @fault_model.setter
+    def fault_model(self, value: str) -> None:
+        """Set the fault model used for fault simulation."""
+        if not (isinstance(value, str)):
+            raise TypeError("fault_model must be a str")
+        self.attr_setter("_fault_model", value)
+
 
     @property
     def top_module(self) -> str:
@@ -2021,47 +2065,27 @@ class HammerATPGTool(HammerTool):
         self.attr_setter("_sdf_file", value)
 
 
+    @property
+    def slack_file(self) -> Optional[str]:
+        """
+        Get the optional slack file (from timing tool) needed for assign slack to fault for slack-based pattern generation (small delay faults).
+
+        :return: The optional slack file (from timing tool) needed for assign slack to fault for slack-based pattern generation (small delay faults).
+        """
+        try:
+            return self.attr_getter("_slack_file", None)
+        except AttributeError:
+            return None
+
+    @slack_file.setter
+    def slack_file(self, value: Optional[str]) -> None:
+        """Set the optional slack file (from timing tool) needed for assign slack to fault for slack-based pattern generation (small delay faults)."""
+        if not (isinstance(value, str) or (value is None)):
+            raise TypeError("slack_file must be a Optional[str]")
+        self.attr_setter("_slack_file", value)
+
+
     ### Outputs ###
-
-    @property
-    def output_waveforms(self) -> List[str]:
-        """
-        Get the paths to output waveforms.
-
-        :return: The paths to output waveforms.
-        """
-        try:
-            return self.attr_getter("_output_waveforms", None)
-        except AttributeError:
-            raise ValueError("Nothing set for the paths to output waveforms yet")
-
-    @output_waveforms.setter
-    def output_waveforms(self, value: List[str]) -> None:
-        """Set the paths to output waveforms."""
-        if not (isinstance(value, List)):
-            raise TypeError("output_waveforms must be a List[str]")
-        self.attr_setter("_output_waveforms", value)
-
-
-    @property
-    def output_saifs(self) -> List[str]:
-        """
-        Get the paths to output activity files.
-
-        :return: The paths to output activity files.
-        """
-        try:
-            return self.attr_getter("_output_saifs", None)
-        except AttributeError:
-            raise ValueError("Nothing set for the paths to output activity files yet")
-
-    @output_saifs.setter
-    def output_saifs(self, value: List[str]) -> None:
-        """Set the paths to output activity files."""
-        if not (isinstance(value, List)):
-            raise TypeError("output_saifs must be a List[str]")
-        self.attr_setter("_output_saifs", value)
-
 
     @property
     def output_top_module(self) -> str:
@@ -2141,6 +2165,146 @@ class HammerATPGTool(HammerTool):
         if not (isinstance(value, str)):
             raise TypeError("output_level must be a str")
         self.attr_setter("_output_level", value)
+
+
+    @property
+    def output_patterns(self) -> str:
+        """
+        Get the Output.
+
+        :return: The Output.
+        """
+        try:
+            return self.attr_getter("_output_patterns", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the Output yet")
+
+    @output_patterns.setter
+    def output_patterns(self, value: str) -> None:
+        """Set the Output."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_patterns must be a str")
+        self.attr_setter("_output_patterns", value)
+
+
+    @property
+    def output_create_patterns(self) -> bool:
+        """
+        Get the Created patterns.
+
+        :return: The Created patterns.
+        """
+        try:
+            return self.attr_getter("_output_create_patterns", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the Created patterns yet")
+
+    @output_create_patterns.setter
+    def output_create_patterns(self, value: bool) -> None:
+        """Set the Created patterns."""
+        if not (isinstance(value, bool)):
+            raise TypeError("output_create_patterns must be a bool")
+        self.attr_setter("_output_create_patterns", value)
+
+
+    @property
+    def output_patterns_file(self) -> str:
+        """
+        Get the Output ATPG pattern path.
+
+        :return: The Output ATPG pattern path.
+        """
+        try:
+            return self.attr_getter("_output_patterns_file", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the Output ATPG pattern path yet")
+
+    @output_patterns_file.setter
+    def output_patterns_file(self, value: str) -> None:
+        """Set the Output ATPG pattern path."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_patterns_file must be a str")
+        self.attr_setter("_output_patterns_file", value)
+
+
+    @property
+    def executed_fault_sim(self) -> bool:
+        """
+        Get the Executed fault simulation.
+
+        :return: The Executed fault simulation.
+        """
+        try:
+            return self.attr_getter("_executed_fault_sim", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the Executed fault simulation yet")
+
+    @executed_fault_sim.setter
+    def executed_fault_sim(self, value: bool) -> None:
+        """Set the Executed fault simulation."""
+        if not (isinstance(value, bool)):
+            raise TypeError("executed_fault_sim must be a bool")
+        self.attr_setter("_executed_fault_sim", value)
+
+
+    @property
+    def executed_generate_patterns(self) -> bool:
+        """
+        Get the Executed pattern generation.
+
+        :return: The Executed pattern generation.
+        """
+        try:
+            return self.attr_getter("_executed_generate_patterns", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the Executed pattern generation yet")
+
+    @executed_generate_patterns.setter
+    def executed_generate_patterns(self, value: bool) -> None:
+        """Set the Executed pattern generation."""
+        if not (isinstance(value, bool)):
+            raise TypeError("executed_generate_patterns must be a bool")
+        self.attr_setter("_executed_generate_patterns", value)
+
+
+    @property
+    def output_patterns_source_kind(self) -> str:
+        """
+        Get the ATPG pattern kind.
+
+        :return: The ATPG pattern kind.
+        """
+        try:
+            return self.attr_getter("_output_patterns_source_kind", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the ATPG pattern kind yet")
+
+    @output_patterns_source_kind.setter
+    def output_patterns_source_kind(self, value: str) -> None:
+        """Set the ATPG pattern kind."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_patterns_source_kind must be a str")
+        self.attr_setter("_output_patterns_source_kind", value)
+
+
+    @property
+    def output_input_faults_file(self) -> Optional[str]:
+        """
+        Get the Input fault list for incremental ATPG run.
+
+        :return: The Input fault list for incremental ATPG run.
+        """
+        try:
+            return self.attr_getter("_output_input_faults_file", None)
+        except AttributeError:
+            return None
+
+    @output_input_faults_file.setter
+    def output_input_faults_file(self, value: Optional[str]) -> None:
+        """Set the Input fault list for incremental ATPG run."""
+        if not (isinstance(value, str) or (value is None)):
+            raise TypeError("output_input_faults_file must be a Optional[str]")
+        self.attr_setter("_output_input_faults_file", value)
 
     ### END Generated interface HammerATPGTool ###
 
