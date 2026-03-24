@@ -6,12 +6,12 @@ from hammer.vlsi import HammerATPGTool, HammerToolStep
 from hammer.common.synopsys import SynopsysTool
 from hammer.logging import HammerVLSILogging
 
-from typing import Dict, List
+from typing import Dict, List, Any
 import hammer.tech
 from hammer.tech import HammerTechnologyUtils
 
 import os
-from multiprocessing import Process
+import re
 
 class TESTMAX(HammerATPGTool, SynopsysTool):
 
@@ -23,29 +23,43 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         self.output_tb_name = self.get_setting("atpg.inputs.tb_name")
         self.output_tb_dut = self.get_setting("atpg.inputs.tb_dut")
         self.output_level = self.get_setting("atpg.inputs.level")
-        self.output_patterns = []
-        self.create_patterns = self.get_setting('atpg.inputs.create_patterns')
-        self.patterns_file = self.get_setting('atpg.inputs.patterns_file')
-        # If the user specified a name for the patterns, the generation is skipped and only fault simulation is performed
-        if self.patterns_file != None:
-            self.create_patterns = False
-        # Track whether we actually invoked fault simulation / generation
-        # in this run.
-        self.did_fault_sim = False
-        self.did_generate_patterns = False
-        # Track the origin of the patterns used for fault simulation
-        # ("generated" vs "user").
-        self.patterns_source_kind = ""
-        self.fault_model = self.get_setting('atpg.inputs.fault_model')
-        self.spf_file = self.get_setting('atpg.inputs.spf_file')
-        self.faults_file = self.get_setting('atpg.inputs.faults_file')
-        return True
-
+        self.output_create_patterns = self.create_patterns 
+        if self.create_patterns:
+            self.output_patterns_file = self.patterns
+        else:
+            self.output_patterns_file = self.patterns_file
+        self.executed_fault_sim = self.did_fault_sim
+        self.executed_generate_patterns = self.did_generate_patterns
+        self.output_patterns_source_kind = self.patterns_source_kind
+        # Input fault list for ATPG run
+        self.output_input_faults_file = self.faults_file
+        return True 
+    
+    def export_config_outputs(self) -> Dict[str, Any]:
+        outputs = dict(super().export_config_outputs())
+        outputs["atpg.outputs.output_top_module"] = self.output_top_module
+        outputs["atpg.outputs.output_tb_name"] = self.output_tb_name
+        outputs["atpg.outputs.output_tb_dut"] = self.output_tb_dut
+        outputs["atpg.outputs.output_level"] = self.output_level
+        outputs["atpg.outputs.output_create_patterns"] = self.output_create_patterns
+        if self.create_patterns:
+            outputs["atpg.outputs.output_patterns_file"] = self.output_patterns_file
+        else:
+            outputs["atpg.outputs.output_patterns_file"] = self.output_patterns_file
+        outputs["atpg.outputs.output_executed_fault_sim"] = self.executed_fault_sim
+        outputs["atpg.outputs.output_executed_generate_patterns"] = self.executed_generate_patterns
+        outputs["atpg.outputs.output_patterns_source_kind"] = self.output_patterns_source_kind
+        outputs["atpg.outputs.output_input_faults_file"] = self.output_input_faults_file
+        return outputs
+    
     @property
     def atpg_fault_model(self) -> str:
         if self.fault_model == "saf":
             return "stuck"
         elif self.fault_model == "tdf":
+            return "transition"
+        elif self.fault_model == "sdf":
+            # Small delay faults are special transition delay faults
             return "transition"
         else:
             self.logger.warning(f"Fault model {self.fault_model} not yet supported. Defaulting to Stuck-at fault model")
@@ -69,7 +83,6 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
     @property
     def steps(self) -> List[HammerToolStep]:
         return self.make_steps_from_methods([
-            self.fill_outputs,
             self.run_build,
             self.run_drc,
             self.run_atpg,
@@ -152,6 +165,31 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         run_drc_args = self.get_setting("atpg.testmax.run_drc_args", nullvalue=[])  # type: List[str]
         run_drc_args_str = " ".join([a for a in run_drc_args if a])
 
+        if self.fault_model == "sdf" :
+            # This is a Tmax dependent flow
+            self.slack_file = self.get_setting('timing.outputs.output_slack_file')
+
+            self.append(f"read_timing {self.slack_file}")
+            # Defines the cutoff for faults of interest for slack-based transition fault testing
+            # generation. Faults with minimum slacks larger than the -max_tmgn parameter
+            # are targeted by the normal transition fault ATPG algorithm rather than by the
+            # slack-based algorithm.
+            self.clocks = self.get_setting("vlsi.inputs.clocks")
+            # Extract the clock value, we consider all SDF
+            match = re.search(r"(\d*\.?\d+)\s*([a-zA-Z]+)", self.clocks[0].get('period'))
+            if match:
+                clock_value = match.group(1) 
+                clock_time_unit = match.group(2)  
+            else:
+                self.logger.error("No clock value from clock specification")
+                return False
+
+            self.append(f"set_delay -max_tmgn {clock_value}")
+            # Sets a level between the longest path and the path on which the fault is detected.
+            # Full detection is still credited, and the fault is dropped from further 
+            # The default is zero (full credit is given only when detection is on the minimum slack path).
+            self.append("set_delay -max_delta_per_fault 0.0")
+            
         spf_path = os.path.abspath(self.spf_file) if self.spf_file is not None else ""
         if run_drc_args_str:
             # Example: run_drc -my_option value <spf>
@@ -169,6 +207,19 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         This method builds `self.output` (TCL/script lines) which `run_testmax`
         writes and passes to the TestMax binary.
         """
+        
+        # Track whether we actually invoked generation in this run.
+        self.did_generate_patterns = False
+        
+        # If the user specified a name for the patterns, the generation is 
+        # skipped and only fault simulation is performed
+        if self.patterns_file != None:
+            self.create_patterns = False
+        
+        # Track the origin of the patterns used for fault simulation
+        # ("generated" vs "user").
+        self.patterns_source_kind = ""
+        
         log = HammerVLSILogging.context("atpg")
 
         # Announce configuration
@@ -201,6 +252,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.append(f'set_faults -model {self.atpg_fault_model}')
         self._load_faults()
 
+        if self.fault_model == "sdf" :
+            self.append(f"set_delay -slackdata_for_atpg")
+
         # if self.pattern_format is not None:
         #     self.append(f'# set_pattern_format {self.pattern_format}')
 
@@ -229,7 +283,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             self.append(f'write_patterns {self.generated_pattern_path} -internal -format stil -replace')
             # Stil pattern suitable for VC_Z01X/Z01X
             self.append(f'write_pattern {self.generated_pattern_path}.zoix -cellnames module  -format stil99 -replace -parallel -nocompaction -order_pins -nocompaction -internal_scancells')
-            self.output_patterns = [self.generated_pattern_path]
+            self.patterns = self.generated_pattern_path
 
             self.did_generate_patterns = True
             self.patterns_source_kind = "generated"
@@ -239,6 +293,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
     def run_fault_sim(self) -> bool:
         """Run fault simulation either on generated patterns (default) or on
         a user-specified pattern file (PATTERNS_FILE=...)."""
+        
+        # Track whether we actually invoked fault simulation in this run.
+        self.did_fault_sim = False
 
         log = HammerVLSILogging.context("atpg.fault_sim")
 
@@ -246,6 +303,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         user_patterns_file = self.patterns_file
 
         patterns_source = ""
+
+        if self.fault_model == "sdf" :
+            self.append(f"set_delay -slackdata_for_faultsim")
 
         if user_patterns_file:
             # Mode 2: only fault simulation of an explicit user pattern file.
@@ -358,6 +418,40 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         report_faults_hierarchical = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_hierarchical.rpt')
         self.append(f"report_faults -level 1000 1 > {report_faults_hierarchical}")
 
+        if self.fault_model == "sdf" :
+            # Reports a histogram of faults based on the minimum slack numbers read in
+            # by the read_timing command. This histogram is either fixed in the number
+            # of buckets or fixed in the slack interval between two consecutive buckets. The
+            # fixed number of buckets is specified by an integer and the fixed bucket interval is
+            # specified with a float. The default is an integer of 10.
+            report_faults_slack_tmgn = os.path.join(base_dir, f'{self.top_module}{suffix}_slack_tmgn.rpt')
+            self.append(f"report_faults -slack TMgn 10 > {report_faults_slack_tmgn}")
+
+            # Reports a histogram of faults based on the slack numbers for the detection
+            # path for each fault (detection slacks). This histogram is either fixed in number
+            # of buckets or fixed in the slack interval between two consecutive buckets. The
+            # fixed number of buckets is specified by an integer and the fixed bucket interval is
+            # specified with a float. The default is an integer of 10. 
+            report_faults_slack_tdet = os.path.join(base_dir, f'{self.top_module}{suffix}_tdet.rpt')
+            self.append(f"report_faults -slack TDet 10 > {report_faults_slack_tdet}")
+            
+            # Reports a histogram of faults based on the difference between detection slacks
+            # and minimum slacks. The reported histogram is either fixed in number of buckets
+            # or fixed in the slack interval between two consecutive buckets. The fixed number
+            # of buckets is specified by an integer and the fixed bucket interval is specified with
+            # a float. The default is an integer of 10.
+            report_faults_slack_delta = os.path.join(base_dir, f'{self.top_module}{suffix}_slack.rpt')
+            self.append(f"report_faults -slack DElta 10 > {report_faults_slack_delta}")
+            
+            # Reports a measure of the effectiveness of the slack-based transition fault set.
+            # The measure varies from 0 percent (no faults of interest with detection slacks
+            # smaller than the -max_tmgn parameter) to 100 percent (all faults of interest
+            # detected on the minimum-slack path).
+            report_faults_slack_effectiveness = os.path.join(base_dir, f'{self.top_module}{suffix}_slack_effectiveness.rpt')
+            self.append(f"report_faults -slack EFfectiveness > {report_faults_slack_effectiveness}")
+
+            report_faults_slack_coverage = os.path.join(base_dir, f'{self.top_module}{suffix}_slack_coverage.rpt')
+            self.append(f"report_faults -slack COVerage > {report_faults_slack_coverage}")
         return True
 
     @property
@@ -396,7 +490,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         tcl_lines.append(f"#   fault_model = {self.fault_model}")
         tcl_lines.append('')
         tcl_lines.extend(self.output)
-        tcl_lines.append('exit')
+
         with open(testmax_tcl, 'w') as _f:
             _f.write('\n'.join(tcl_lines))
             _f.write('\nexit')
