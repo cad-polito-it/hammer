@@ -234,17 +234,26 @@ def main(args) -> int:
     HammerATPGTool = Interface(module="HammerATPGTool",
                             filename="vlsi/hammer_vlsi_impl.py",
                             inputs=[
+                                InterfaceVar("fault_model", "str", "fault model used for fault simulation"),
                                 InterfaceVar("top_module", "str", "top design module"),
                                 InterfaceVar("input_files", "List[str]", "paths to input verilog files"),
                                 InterfaceVar("all_regs", "str", "path to list of all registers in the design with output pin"),
                                 InterfaceVar("seq_cells", "str", "path to collection of all sequential standard cells in design"),
-                                InterfaceVar("sdf_file", "Optional[str]", "optional SDF file needed for timing annotated gate level sims")
+                                InterfaceVar("sdf_file", "Optional[str]", "optional SDF file needed for timing annotated gate level sims"),
+                                InterfaceVar("slack_file", "Optional[str]", "optional slack file (from timing tool) needed for assign slack to fault for slack-based pattern generation (small delay faults)")
                             ],
                             outputs=[
                                 InterfaceVar("output_top_module", "str", "top RTL module"),
                                 InterfaceVar("output_tb_name", "str", "ATPG testbench name"),
                                 InterfaceVar("output_tb_dut", "str", "ATPG DUT instance name"),
-                                InterfaceVar("output_level", "str", "ATPG flow level")
+                                InterfaceVar("output_level", "str", "ATPG flow level"),
+                                InterfaceVar("output_patterns", "str", "Output"),
+                                InterfaceVar("output_create_patterns", "bool", "Created patterns"),
+                                InterfaceVar("output_patterns_file", "str", "Output ATPG pattern path"),
+                                InterfaceVar("executed_fault_sim", "bool", "Executed fault simulation"),
+                                InterfaceVar("executed_generate_patterns", "bool", "Executed pattern generation"),
+                                InterfaceVar("output_patterns_source_kind", "str", "ATPG pattern kind"),
+                                InterfaceVar("output_input_faults_file", "Optional[str]", "Input fault list for incremental ATPG run"),
                             ]
                             )
 
