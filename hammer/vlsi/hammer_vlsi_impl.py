@@ -381,6 +381,26 @@ class HammerSynthesisTool(HammerTool):
             raise TypeError("sdf_file must be a str")
         self.attr_setter("_sdf_file", value)
 
+
+    @property
+    def spf_file(self) -> str:
+        """
+        Get the output SPF file to be read for DRC by the ATPG tool.
+
+        :return: The output SPF file to be read for DRC by the ATPG tool.
+        """
+        try:
+            return self.attr_getter("_spf_file", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the output SPF file to be read for DRC by the ATPG tool yet")
+
+    @spf_file.setter
+    def spf_file(self, value: str) -> None:
+        """Set the output SPF file to be read for DRC by the ATPG tool."""
+        if not (isinstance(value, str)):
+            raise TypeError("spf_file must be a str")
+        self.attr_setter("_spf_file", value)
+
     ### END Generated interface HammerSynthesisTool ###
 
 
@@ -1652,6 +1672,10 @@ class HammerSimTool(HammerTool):
 
 class HammerFaultSimTool(HammerTool):
 
+    @abstractmethod
+    def fill_outputs(self) -> bool:
+        pass
+
     def export_config_outputs(self) -> Dict[str, Any]:
         outputs = deepdict(super().export_config_outputs())
         outputs["fsim.outputs.waveforms"] = self.output_waveforms
@@ -1695,6 +1719,26 @@ class HammerFaultSimTool(HammerTool):
         if not (isinstance(value, str)):
             raise TypeError("top_module must be a str")
         self.attr_setter("_top_module", value)
+
+
+    @property
+    def fault_model(self) -> str:
+        """
+        Get the fault model used for fault simulation.
+
+        :return: The fault model used for fault simulation.
+        """
+        try:
+            return self.attr_getter("_fault_model", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the fault model used for fault simulation yet")
+
+    @fault_model.setter
+    def fault_model(self, value: str) -> None:
+        """Set the fault model used for fault simulation."""
+        if not (isinstance(value, str)):
+            raise TypeError("fault_model must be a str")
+        self.attr_setter("_fault_model", value)
 
 
     @property
@@ -1760,9 +1804,9 @@ class HammerFaultSimTool(HammerTool):
     @property
     def sdf_file(self) -> Optional[str]:
         """
-        Get the optional SDF file needed for timing annotated gate level sims.
+        Get the optional SDF file needed for timing annotated gate level fault sims.
 
-        :return: The optional SDF file needed for timing annotated gate level sims.
+        :return: The optional SDF file needed for timing annotated gate level fault sims.
         """
         try:
             return self.attr_getter("_sdf_file", None)
@@ -1771,10 +1815,30 @@ class HammerFaultSimTool(HammerTool):
 
     @sdf_file.setter
     def sdf_file(self, value: Optional[str]) -> None:
-        """Set the optional SDF file needed for timing annotated gate level sims."""
+        """Set the optional SDF file needed for timing annotated gate level fault sims."""
         if not (isinstance(value, str) or (value is None)):
             raise TypeError("sdf_file must be a Optional[str]")
         self.attr_setter("_sdf_file", value)
+
+
+    @property
+    def slack_file(self) -> Optional[str]:
+        """
+        Get the optional slack file (from timing tool) needed for assign slack to fault for slack-based pattern generation (small delay faults).
+
+        :return: The optional slack file (from timing tool) needed for assign slack to fault for slack-based pattern generation (small delay faults).
+        """
+        try:
+            return self.attr_getter("_slack_file", None)
+        except AttributeError:
+            return None
+
+    @slack_file.setter
+    def slack_file(self, value: Optional[str]) -> None:
+        """Set the optional slack file (from timing tool) needed for assign slack to fault for slack-based pattern generation (small delay faults)."""
+        if not (isinstance(value, str) or (value is None)):
+            raise TypeError("slack_file must be a Optional[str]")
+        self.attr_setter("_slack_file", value)
 
 
     ### Outputs ###
@@ -1842,18 +1906,18 @@ class HammerFaultSimTool(HammerTool):
     @property
     def output_tb_name(self) -> str:
         """
-        Get the sim testbench name.
+        Get the fault sim testbench name.
 
-        :return: The sim testbench name.
+        :return: The fault sim testbench name.
         """
         try:
             return self.attr_getter("_output_tb_name", None)
         except AttributeError:
-            raise ValueError("Nothing set for the sim testbench name yet")
+            raise ValueError("Nothing set for the fault sim testbench name yet")
 
     @output_tb_name.setter
     def output_tb_name(self, value: str) -> None:
-        """Set the sim testbench name."""
+        """Set the fault sim testbench name."""
         if not (isinstance(value, str)):
             raise TypeError("output_tb_name must be a str")
         self.attr_setter("_output_tb_name", value)
@@ -1862,18 +1926,18 @@ class HammerFaultSimTool(HammerTool):
     @property
     def output_tb_dut(self) -> str:
         """
-        Get the sim DUT instance name.
+        Get the fault sim DUT instance name.
 
-        :return: The sim DUT instance name.
+        :return: The fault sim DUT instance name.
         """
         try:
             return self.attr_getter("_output_tb_dut", None)
         except AttributeError:
-            raise ValueError("Nothing set for the sim DUT instance name yet")
+            raise ValueError("Nothing set for the fault sim DUT instance name yet")
 
     @output_tb_dut.setter
     def output_tb_dut(self, value: str) -> None:
-        """Set the sim DUT instance name."""
+        """Set the fault sim DUT instance name."""
         if not (isinstance(value, str)):
             raise TypeError("output_tb_dut must be a str")
         self.attr_setter("_output_tb_dut", value)
@@ -1882,21 +1946,161 @@ class HammerFaultSimTool(HammerTool):
     @property
     def output_level(self) -> str:
         """
-        Get the simulation flow level.
+        Get the fault simulation flow level.
 
-        :return: The simulation flow level.
+        :return: The fault simulation flow level.
         """
         try:
             return self.attr_getter("_output_level", None)
         except AttributeError:
-            raise ValueError("Nothing set for the simulation flow level yet")
+            raise ValueError("Nothing set for the fault simulation flow level yet")
 
     @output_level.setter
     def output_level(self, value: str) -> None:
-        """Set the simulation flow level."""
+        """Set the fault simulation flow level."""
         if not (isinstance(value, str)):
             raise TypeError("output_level must be a str")
         self.attr_setter("_output_level", value)
+
+
+    @property
+    def output_strobe_file_name(self) -> str:
+        """
+        Get the strobe file name path.
+
+        :return: The strobe file name path.
+        """
+        try:
+            return self.attr_getter("_output_strobe_file_name", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the strobe file name path yet")
+
+    @output_strobe_file_name.setter
+    def output_strobe_file_name(self, value: str) -> None:
+        """Set the strobe file name path."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_strobe_file_name must be a str")
+        self.attr_setter("_output_strobe_file_name", value)
+
+
+    @property
+    def output_fault_model(self) -> str:
+        """
+        Get the fault model used for fault simulation.
+
+        :return: The fault model used for fault simulation.
+        """
+        try:
+            return self.attr_getter("_output_fault_model", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the fault model used for fault simulation yet")
+
+    @output_fault_model.setter
+    def output_fault_model(self, value: str) -> None:
+        """Set the fault model used for fault simulation."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_fault_model must be a str")
+        self.attr_setter("_output_fault_model", value)
+
+
+    @property
+    def output_campaign_tb_dut(self) -> str:
+        """
+        Get the .
+
+        :return: The .
+        """
+        try:
+            return self.attr_getter("_output_campaign_tb_dut", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the  yet")
+
+    @output_campaign_tb_dut.setter
+    def output_campaign_tb_dut(self, value: str) -> None:
+        """Set the ."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_campaign_tb_dut must be a str")
+        self.attr_setter("_output_campaign_tb_dut", value)
+
+
+    @property
+    def output_campaign_tcl(self) -> str:
+        """
+        Get the tcl script path for fault simulation.
+
+        :return: The tcl script path for fault simulation.
+        """
+        try:
+            return self.attr_getter("_output_campaign_tcl", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the tcl script path for fault simulation yet")
+
+    @output_campaign_tcl.setter
+    def output_campaign_tcl(self, value: str) -> None:
+        """Set the tcl script path for fault simulation."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_campaign_tcl must be a str")
+        self.attr_setter("_output_campaign_tcl", value)
+
+
+    @property
+    def output_output_folder(self) -> str:
+        """
+        Get the output folder.
+
+        :return: The output folder.
+        """
+        try:
+            return self.attr_getter("_output_output_folder", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the output folder yet")
+
+    @output_output_folder.setter
+    def output_output_folder(self, value: str) -> None:
+        """Set the output folder."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_output_folder must be a str")
+        self.attr_setter("_output_output_folder", value)
+
+
+    @property
+    def output_standard_fault_format(self) -> str:
+        """
+        Get the standard fault format used for generating fault list.
+
+        :return: The standard fault format used for generating fault list.
+        """
+        try:
+            return self.attr_getter("_output_standard_fault_format", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the standard fault format used for generating fault list yet")
+
+    @output_standard_fault_format.setter
+    def output_standard_fault_format(self, value: str) -> None:
+        """Set the standard fault format used for generating fault list."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_standard_fault_format must be a str")
+        self.attr_setter("_output_standard_fault_format", value)
+
+
+    @property
+    def output_report_folder(self) -> str:
+        """
+        Get the output report folder.
+
+        :return: The output report folder.
+        """
+        try:
+            return self.attr_getter("_output_report_folder", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the output report folder yet")
+
+    @output_report_folder.setter
+    def output_report_folder(self, value: str) -> None:
+        """Set the output report folder."""
+        if not (isinstance(value, str)):
+            raise TypeError("output_report_folder must be a str")
+        self.attr_setter("_output_report_folder", value)
 
     ### END Generated interface HammerFaultSimTool ###
 
