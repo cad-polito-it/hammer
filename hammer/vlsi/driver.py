@@ -689,6 +689,15 @@ class HammerDriver:
         atpg_tool.top_module = self.database.get_setting("atpg.inputs.top_module", nullvalue="")
         atpg_tool.output_level = self.database.get_setting("atpg.inputs.level", nullvalue="")
 
+        atpg_tool.fault_model = self.database.get_setting('atpg.inputs.fault_model')
+        atpg_tool.spf_file = self.database.get_setting('atpg.inputs.spf_file')
+
+
+        atpg_tool.create_patterns = False if self.database.get_setting('atpg.inputs.create_patterns') == "False" else True
+        atpg_tool.patterns_file = self.database.get_setting('atpg.inputs.patterns_file')
+
+        atpg_tool.faults_file = self.database.get_setting('atpg.inputs.faults_file', None)
+
         missing_inputs = False
         if atpg_tool.top_module == "":
             self.log.error("Top module not specified for ATPG")
