@@ -2,7 +2,7 @@
 #
 #  See LICENSE for licence details.
 
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 
 import os
 import errno
@@ -14,6 +14,19 @@ import hammer.tech as hammer_tech
 from hammer.common.synopsys import SynopsysTool
 
 class PrimeTime(HammerTimingTool, SynopsysTool):
+
+    def fill_outputs(self) -> bool:
+        if self.slack_file is not None:
+            self.output_slack_file = self.slack_file
+        else:
+            self.logger.warning("Timing tool did not generate any slack file for Small Delay Faults")
+        return True
+
+    def export_config_outputs(self) -> Dict[str, Any]:
+        outputs = dict(super().export_config_outputs())
+        # The output slack file can be used by the atpg and the fsim
+        outputs["timing.outputs.output_slack_file"] = self.output_slack_file
+        return outputs
 
     def tool_config_prefix(self) -> str:
         return "timing.primetime"
@@ -58,17 +71,6 @@ class PrimeTime(HammerTimingTool, SynopsysTool):
     def init_design(self) -> bool:
         """ Load design and analysis corners """
         
-        # lef_files = self.technology.read_libs([
-            # hammer_tech.filters.lef_filter
-        # ], hammer_tech.HammerTechnologyUtils.to_plain_item)
-        # if self.hierarchical_mode.is_nonleaf_hierarchical():
-            # ilm_lefs = list(map(lambda ilm: ilm.lef, self.get_input_ilms(full_tree=True)))
-            # lef_files.extend(ilm_lefs)
-        # verbose_append("read_physical -lef {{ {files} }}".format(
-            # files=" ".join(lef_files)
-        # ))
-
-
         # Read timing databases
         for db in self.timing_dbs:
             self.append("read_db %s" % db)
@@ -155,7 +157,8 @@ class PrimeTime(HammerTimingTool, SynopsysTool):
     def generate_reports(self) -> bool:
         """Generate reports"""
         ## This is crucial for Small Delay Faults
-        self.append(f"report_global_slack -max -nosplit > {self.report_dir}/report_global_slack.rpt")
+        self.slack_file = f"{self.report_dir}/report_global_slack.rpt"
+        self.append(f"report_global_slack -max -nosplit > {self.slack_file}")
         self.append(f"report_timing -nworst {self.max_paths} > {self.report_dir}/report_timing.rpt")
  
         self.append(f"report_global_timing > {self.report_dir}/report_global_timing.rpt")
