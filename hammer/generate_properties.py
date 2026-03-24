@@ -293,7 +293,10 @@ def main(args) -> int:
                                 InterfaceVar("def_file", "Optional[str]",
                                              "(optional) input DEF file")
                             ],
-                            outputs=[]
+                            outputs=[
+                                InterfaceVar("output_slack_file", "Optional[str]",
+                                    "Output slack report for small delay faults"),
+                            ]
                             )
     HammerPCBDeliverableTool = Interface(module="HammerPCBDeliverableTool",
                                        filename="vlsi/hammer_vlsi_impl.py",
