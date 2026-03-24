@@ -2490,6 +2490,10 @@ class HammerFormalTool(HammerTool):
 
 class HammerTimingTool(HammerTool):
 
+    @abstractmethod
+    def fill_outputs(self) -> bool:
+        pass
+
     @property
     def max_paths(self) -> FlowLevel:
         """Return the max paths to report."""
@@ -2621,6 +2625,26 @@ class HammerTimingTool(HammerTool):
 
 
     ### Outputs ###
+
+    @property
+    def output_slack_file(self) -> Optional[str]:
+        """
+        Get the Output slack report for small delay faults.
+
+        :return: The Output slack report for small delay faults.
+        """
+        try:
+            return self.attr_getter("_output_slack_file", None)
+        except AttributeError:
+            return None
+
+    @output_slack_file.setter
+    def output_slack_file(self, value: Optional[str]) -> None:
+        """Set the Output slack report for small delay faults."""
+        if not (isinstance(value, str) or (value is None)):
+            raise TypeError("output_slack_file must be a Optional[str]")
+        self.attr_setter("_output_slack_file", value)
+
     ### END Generated interface HammerTimingTool ###
 
 class HasUPFSupport(HammerTool):
