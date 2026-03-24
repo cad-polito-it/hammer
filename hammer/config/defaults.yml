@@ -969,6 +969,11 @@ fsim.inputs:
   # Standard Delay Format file for use in timing annotated sims
   # leave as null if not in use
 
+  slack_file: null
+  # Path to the slack file used for small delay fault fsim
+  # type: str
+  # leave as null if not in use
+
   gl_register_force_value: 0 # Simulation force value used for register initialization for gate level sims
   # type: int
 
@@ -997,8 +1002,6 @@ fsim.inputs:
   campaign_tcl: "" # Path to the tcl file for the fault simulation campaign
   
   output_folder: "" # Path to the output folder dir where the output, sff file with fault generation and fault list, and fault report will be saved 
-  
-  fsim_generate_faults : true # Flag to decide wether to execute fault generation or if fault list is already provided
   
   standard_fault_format: "" # Path to the standard fault format file for fault simulation
   

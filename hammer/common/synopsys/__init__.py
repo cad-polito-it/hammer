@@ -12,7 +12,6 @@ from hammer.tech import HammerTechnologyUtils
 class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
     """Mix-in trait with functions useful for Synopsys-based tools."""
 
-    ## FIXME: not used by any Synopsys tool
     @property
     def post_synth_sdc(self) -> Optional[str]:
         return None

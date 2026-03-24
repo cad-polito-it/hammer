@@ -626,6 +626,9 @@ class HammerDriver:
         fsim_tool.seq_cells = self.database.get_setting("fsim.inputs.seq_cells")
         fsim_tool.sdf_file = self.database.get_setting("fsim.inputs.sdf_file")
 
+        fsim_tool.tb_dut = self.database.get_setting("fsim.inputs.tb_dut")
+        fsim_tool.fault_model = self.database.get_setting("fsim.inputs.fault_model")
+        
         missing_inputs = False
         if fsim_tool.top_module == "":
             self.log.error("Top module not specified for fault simulation")
