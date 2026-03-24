@@ -1003,8 +1003,6 @@ fsim.inputs:
   
   output_folder: "" # Path to the output folder dir where the output, sff file with fault generation and fault list, and fault report will be saved 
   
-  fsim_generate_faults : true # Flag to decide wether to execute fault generation or if fault list is already provided
-  
   standard_fault_format: "" # Path to the standard fault format file for fault simulation
   
   campaign_simv_daidir: "" # Path to the run directory of vc-zoix
