@@ -216,10 +216,12 @@ def main(args) -> int:
                               filename="vlsi/hammer_vlsi_impl.py",
                               inputs=[
                                   InterfaceVar("top_module", "str", "top RTL module"),
+                                  InterfaceVar("fault_model", "str", "fault model used for fault simulation"),
                                   InterfaceVar("input_files", "List[str]", "paths to input verilog files"),
                                   InterfaceVar("all_regs", "str", "path to list of all registers in the design with output pin"),
                                   InterfaceVar("seq_cells", "str", "path to collection of all sequential standard cells in design"),
-                                  InterfaceVar("sdf_file", "Optional[str]", "optional SDF file needed for timing annotated gate level fault sims")
+                                  InterfaceVar("sdf_file", "Optional[str]", "optional SDF file needed for timing annotated gate level fault sims"),
+                                  InterfaceVar("slack_file", "Optional[str]", "optional slack file (from timing tool) needed for assign slack to fault for slack-based pattern generation (small delay faults)")
                               ],
                               outputs=[
                                   InterfaceVar("output_waveforms", "List[str]", "paths to output waveforms"),
@@ -227,7 +229,14 @@ def main(args) -> int:
                                   InterfaceVar("output_top_module", "str", "top RTL module"),
                                   InterfaceVar("output_tb_name", "str", "fault sim testbench name"),
                                   InterfaceVar("output_tb_dut", "str", "fault sim DUT instance name"),
-                                  InterfaceVar("output_level", "str", "fault simulation flow level")
+                                  InterfaceVar("output_level", "str", "fault simulation flow level"),
+                                  InterfaceVar("output_strobe_file_name", "str", "strobe file name path"),
+                                  InterfaceVar("output_fault_model", "str", "fault model used for fault simulation"),
+                                  InterfaceVar("output_campaign_tb_dut", "str", ""),
+                                  InterfaceVar("output_campaign_tcl", "str", "tcl script path for fault simulation"),
+                                  InterfaceVar("output_output_folder", "str", "output folder" ),
+                                  InterfaceVar("output_standard_fault_format", "str", "standard fault format used for generating fault list" ),
+                                  InterfaceVar("output_report_folder", "str", "output report folder"),
                               ]
                               )
 
