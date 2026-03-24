@@ -218,7 +218,7 @@ def build_makefile(driver: HammerDriver, append_error_func: Callable[[str], None
         {fsim_syn_in}: {syn_out}
         \t$(HAMMER_EXEC) {env_confs} -p {syn_out} $(HAMMER_EXTRA_ARGS) -o {fsim_syn_in} --obj_dir {obj_dir} syn-to-fsim
 
-        {fsim_syn_out}: {fsim_syn_in} $(HAMMER_SIM_SYN_DEPENDENCIES)
+        {fsim_syn_out}: {fsim_syn_in} $(HAMMER_SIM_SYN_DEPENDENCIES) $(HAMMER_FSIM_TIMING_DEPENDENCIES)
         \t$(HAMMER_EXEC) {env_confs} -p {fsim_syn_in} $(HAMMER_EXTRA_ARGS) --fsim_rundir {fsim_syn_run_dir} --obj_dir {obj_dir} fsim{suffix}
 
         {power_sim_syn_in}: {sim_syn_out}
