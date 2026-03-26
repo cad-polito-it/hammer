@@ -415,14 +415,19 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 f.write("}\n")
         else:
             # This is primetime and vc zoix dependent
-            self.slack_file = self.get_setting('timing.outputs.output_slack_file')         
-            if self.slack_file is None and self.fault_model == "sdf":
-                self.logger.error("Slack file not defined")
-                return False
+            if self.fault_model == "sdf":
+                self.slack_file = self.get_setting('timing.outputs.output_slack_file', None)         
+                if self.slack_file is None:
+                    self.logger.error("Slack file not defined")
+                    return False
             # Use a custom sff file 
             filename, extension = os.path.splitext(os.path.basename(self.standard_fault_format))
             if self.standard_fault_format.endswith("sff"):
                 internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, filename + "_" + self.fault_model + "_" + self.tb_dut.split(".")[-1] + ".sff")
+                with open(self.standard_fault_format, "r") as fin:
+                    for line in fin:
+                        if "FaultGenerate" in line:
+                            self.fsim_generate_faults = True 
                 if self.fault_model == "sdf":
                     if not(self._fuse_slack_with_sff(self.slack_file, internal_standard_fault_format)):
                         return False
