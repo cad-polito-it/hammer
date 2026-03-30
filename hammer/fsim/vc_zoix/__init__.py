@@ -633,16 +633,15 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         if self.level.is_gatelevel():
             args.extend(['-P'])
             args.extend([access_tab_filename])
+            args.extend(["+notimingcheck"])
             if self.get_setting("fsim.inputs.timing_annotated"):
                 args.extend(["+neg_tchk"])
                 args.extend(["+sdfverbose"])
-                args.extend(["-negdelay"])
                 if self.sdf_file:
                     args.extend(["-sdf", "typ:{top}:{sdf}".format(top=top_module, sdf=os.path.join(os.getcwd(), self.sdf_file))])
-                # TODO or delay_mode_distributed_path (very time consuming) ?
-                args.extend(["+delay_mode_path"])
+                # Distributed delays are delays on nets, primitives, or continuous assignments. 
+                args.extend(["+delay_mode_distributed_path"])
             else:
-                args.extend(["+notimingcheck"])
                 args.extend(["+delay_mode_zero"])
         else:
             # Also disable timing at RTL level for any hard macros
@@ -661,9 +660,10 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         
         # For small delay faults the fault simulation mode must be serial_flow
         # By default the mode is concurrent
-        if self.fault_model == "sdf":
-            self.logger.info(f"VC Z01X using serial_flow fault simulation mode")
-            args.append(f"-fsim=serial_flow")
+        # TODO (franout): Transition delay faults are not yet supported in serial flow combined with standard delay format
+        #if self.fault_model == "sdf":
+        #    self.logger.info(f"VC Z01X using serial_flow fault simulation mode")
+        #    args.append(f"-fsim=serial_flow")
         
         args.append("-fsim=dut:" + self.campaign_tb_dut)
 
@@ -759,6 +759,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             "-full64",
             "-daidir " + campaign_simv_daidir,
             "-sff " + self.standard_fault_format,
+            "-uncontrollability",
+            "-prune", "on",
             "-report " + sff_report_path,
             "-campaign " + self.campaign_tb_dut.split(".")[-1],
             "-collapse off",
@@ -809,7 +811,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 "-faultlist " + self.standard_fault_format,
                 "-format" , "tetramax",
                 "-report " + sff_report_path,
-                "-prune", "off" , # Avoid fault pruning
+                "-prune", "on" ,
+                "-uncontrollability",
                 "-campaign " + self.campaign_tb_dut.split(".")[-1],
                 # TODO (franout) : to be implemented "-dut_path " + self.campaign_tb_dut,
                 "-collapse off",
