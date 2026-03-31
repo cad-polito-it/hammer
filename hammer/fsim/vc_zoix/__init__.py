@@ -424,6 +424,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             filename, extension = os.path.splitext(os.path.basename(self.standard_fault_format))
             if self.standard_fault_format.endswith("sff"):
                 internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, filename + "_" + self.fault_model + "_" + self.tb_dut.split(".")[-1] + ".sff")
+                shutil.copy(self.standard_fault_format, internal_standard_fault_format)
                 with open(self.standard_fault_format, "r") as fin:
                     for line in fin:
                         if "FaultGenerate" in line:
@@ -433,9 +434,9 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                         return False
             else:
                 internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, filename + "_" + self.fault_model + "_" + self.tb_dut.split(".")[-1] + extension)
+                shutil.copy(self.standard_fault_format, internal_standard_fault_format)
                 # If sdf, it must be converted first and then delays can be added
             os.makedirs(os.path.dirname(internal_standard_fault_format), exist_ok=True)
-            shutil.copy(self.standard_fault_format, internal_standard_fault_format)
             self.standard_fault_format = internal_standard_fault_format
         self.report_folder = ""
         return True
