@@ -116,7 +116,7 @@
     "input port polarity" : "active high",
     "mask port name" : "W0_wmask",
     "mask port polarity" : "active high",
-    "mask granularity" : 32
+    "mask granularity" : 1
   } 
 ]
 },
