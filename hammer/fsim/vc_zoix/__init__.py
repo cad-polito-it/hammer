@@ -812,8 +812,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 "-faultlist " + self.standard_fault_format,
                 "-format" , "tetramax",
                 "-report " + sff_report_path,
-                "-prune", "on" ,
-                "-uncontrollability",
                 "-campaign " + self.campaign_tb_dut.split(".")[-1],
                 # TODO (franout) : to be implemented "-dut_path " + self.campaign_tb_dut,
                 "-collapse off",
@@ -858,6 +856,9 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         "-daidir " + campaign_simv_daidir, 
         "-sff " + os.path.join(self.run_dir, self.fault_model + "_" + self.campaign_tb_dut.split(".")[-1] + ".sff"),
         "-campaign " + self.campaign_tb_dut.split(".")[-1],
+        "-prune", "global" ,
+        "-uncontrollability",
+        "-collapse off",
         "-overwrite"
         ]
 
