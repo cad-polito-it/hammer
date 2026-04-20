@@ -342,7 +342,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         If a faults_file is provided, reads faults from that file.
         Otherwise, adds all faults (excluding fakeram modules).
         """
-        self.append("add_nofaults -module \"fakeram.*\"")
+        sram_libs = self.technology.get_extra_libraries_name()
+        for sram_name in sram_libs:
+            self.append(f"add_nofaults -module \"{sram_name}.*\"")
+        
         if self.faults_file:
             self.append(f'# reading faults from {self.faults_file} with force retain code')
             self.append(f'read_faults {self.faults_file} -force_retain_code')

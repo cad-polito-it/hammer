@@ -158,7 +158,7 @@ class DC(HammerSynthesisTool, SynopsysTool):
                 self.logger.error("Cannot find %s" % db)
                 return False
         self.append("set_app_var target_library \"%s\"" % ' '.join(self.timing_dbs))
-        self.append("set_app_var synthetic_library dw_foundation.sldb")
+        #self.append("set_app_var synthetic_library dw_foundation.sldb")
         self.append("set_app_var link_library \"* $target_library $synthetic_library\"")
 
         # For designs that don't have tight QoR constraints and don't have register retiming,
@@ -195,12 +195,14 @@ class DC(HammerSynthesisTool, SynopsysTool):
         self.append("link")
 
         # Set Rams as black boxes
-        self.append("foreach_in_collection ram [get_references -hierarchical \"*fakeram*\"] {")
-        #self.append("set_attribute $ram is_black_box true")
-        self.append("set_attribute $ram is_memory_cell true")
-        self.append("set_attribute $ram is_physical_black_box true" )
-        self.append("set_dont_touch $ram")
-        self.append("}")
+        sram_libs = self.technology.get_extra_libraries_name()
+        for sram_name in sram_libs:
+            self.append(f"foreach_in_collection ram [get_references -hierarchical \"*{sram_name}*\"] {{")
+            #self.append("set_attribute $ram is_black_box true")
+            self.append("set_attribute $ram is_memory_cell true")
+            self.append("set_attribute $ram is_physical_black_box true" )
+            self.append("set_dont_touch $ram")
+            self.append("}")
 
         return True
 
@@ -297,9 +299,15 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
 
     def _insert_test_points(self) -> str:
         """Insert Test Points for Rams"""
-        return """
+        sram_libs = self.technology.get_extra_libraries_name()
+        
+        # Create a space-separated string of patterns for Tcl
+        # Example: "*RAM_A* *RAM_B*"
+        rams_pattern = " ".join([f"\"*{name}*\"" for name in sram_libs])
+
+        return f"""
 set_testability_configuration -control_signal test_mode
-set_testability_configuration -target shadow_wrapper -isolate_elements  [get_instances -hierarchical \"*ram*\"]
+set_testability_configuration -target shadow_wrapper -isolate_elements [get_cells -hierarchical [ {rams_pattern} ]]
 
 # get_shadow_wrapper_pins.tcl - get candidate shadow wrapper pins of a cell
 # chrispy@synopsys.com
@@ -307,57 +315,57 @@ set_testability_configuration -target shadow_wrapper -isolate_elements  [get_ins
 # v1.0  04/27/2015 chrispy
 #  initial release
 
-proc get_shadow_wrapper_pins {args} {
+proc get_shadow_wrapper_pins {{args}} {{
  parse_proc_arguments -args $args results
- if {[set cells [get_cells $results(cells)]] eq {}} {return}
+ if {{[set cells [get_cells $results(cells)]] eq {{}}}} {{return}}
 
- set pins {}
- foreach_in_collection cell $cells {
-  foreach_in_collection pin [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"] {
-   if {[get_attribute -quiet $pin is_clock_pin] eq true} {continue}
-   if {[get_attribute -quiet $pin is_async_pin] eq true} {continue}
-   switch -exact $results(-direction) {
-    in {
-     if {[get_attribute -quiet $pin signal_type] ne {}} {continue}
-     if {[all_fanin -trace all -flat -startpoints_only -to $pin] eq {}} {continue}
-    }
-    out {
-     if {[all_fanout -trace all -flat -endpoints_only -from $pin] eq {}} {continue}
-    }
-   }
+ set pins {{}}
+ foreach_in_collection cell $cells {{
+  foreach_in_collection pin [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"] {{
+   if {{[get_attribute -quiet $pin is_clock_pin] eq true}} {{continue}}
+   if {{[get_attribute -quiet $pin is_async_pin] eq true}} {{continue}}
+   switch -exact $results(-direction) {{
+    in {{
+     if {{[get_attribute -quiet $pin signal_type] ne {{}}}} {{continue}}
+     if {{[all_fanin -trace all -flat -startpoints_only -to $pin] eq {{}}}} {{continue}}
+    }}
+    out {{
+     if {{[all_fanout -trace all -flat -endpoints_only -from $pin] eq {{}}}} {{continue}}
+    }}
+   }}
    append_to_collection pins $pin
-  }
- }
+  }}
+ }}
 
  return [sort_collection -dictionary $pins full_name]
-}
+}}
 
-define_proc_attributes get_shadow_wrapper_pins \
- -info "Get candidate shadow wrapper pins of a cell" \
- -define_args \
- {
-  {-direction "Pin direction to return" direction one_of_string {required value_help {values {in out}}}}
-  {cells "Cells to examine" "cells" string required}
- }
+define_proc_attributes get_shadow_wrapper_pins \\
+ -info "Get candidate shadow wrapper pins of a cell" \\
+ -define_args \\
+ {{
+    {{-direction "Pin direction to return" direction one_of_string {{required value_help {{values {{in out}}}}}}}}
+    {{cells "Cells to examine" "cells" string required}}
+ }}
 
 
-foreach_in_collection cell [get_cells -hierarchical "mem_*_*" -filter "is_memory_cell==true" ] {
+foreach_in_collection cell [get_cells -hierarchical "mem_*_*" -filter "is_memory_cell==true" ] {{
+# add observe points at data input pins
+set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
+
+# add control_01 points at data output pins
+set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
+}}
+
+
+foreach_in_collection cell [get_cells -hierarchical [{rams_pattern} ]] {{
 # add observe points at data input pins
 set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
 
 # add control_01 points at data output pins
 set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
 
-}
-
-foreach_in_collection cell [get_cells -hierarchical "*ram*"] {
-# add observe points at data input pins
-set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
-
-# add control_01 points at data output pins
-set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
-
-}
+}}
 """
 
     def insert_dft(self) -> bool:
