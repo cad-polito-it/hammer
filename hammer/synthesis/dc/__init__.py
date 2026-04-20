@@ -158,7 +158,7 @@ class DC(HammerSynthesisTool, SynopsysTool):
                 self.logger.error("Cannot find %s" % db)
                 return False
         self.append("set_app_var target_library \"%s\"" % ' '.join(self.timing_dbs))
-        #self.append("set_app_var synthetic_library dw_foundation.sldb")
+        self.append("set_app_var synthetic_library dw_foundation.sldb")
         self.append("set_app_var link_library \"* $target_library $synthetic_library\"")
 
         # For designs that don't have tight QoR constraints and don't have register retiming,
