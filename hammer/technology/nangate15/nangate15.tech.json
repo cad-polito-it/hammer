@@ -13,12 +13,17 @@
   "additional_lvs_text": "", 
 
   "libraries": [
+     {
+    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_conditional.v",
+    "provides": [{"lib_type": "technology"}]
+    },
+   
     {
     "ccs_library_file" : "nangate15/CCS/NanGate_15nm_OCL_typical_conditional_ccs.db",
     "ccs_liberty_file" : "nangate15/CCS/NanGate_15nm_OCL_typical_conditional_ccs.lib",
     "nldm_liberty_file": "nangate15/NLDM/NanGate_15nm_OCL_typical_conditional_nldm.lib",
     "nldm_library_file": "nangate15/NLDM/NanGate_15nm_OCL_typical_conditional_nldm.db",
-    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_functional.v",
+    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_conditional.v",
     "corner": {
       "nmos": "typical",
       "pmos": "typical",
@@ -40,7 +45,7 @@
     "ccs_liberty_file" : "nangate15/CCS/NanGate_15nm_OCL_low_temp_conditional_ccs.lib",
     "nldm_liberty_file": "nangate15/NLDM/NanGate_15nm_OCL_low_temp_conditional_nldm.lib",
     "nldm_library_file": "nangate15/NLDM/NanGate_15nm_OCL_low_temp_conditional_nldm.db",
-    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_functional.v",
+    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_conditional.v",
     "corner": {
       "nmos": "low",
       "pmos": "low",
@@ -61,7 +66,7 @@
     "ccs_liberty_file" : "nangate15/CCS/NanGate_15nm_OCL_fast_conditional_ccs.lib",
     "nldm_liberty_file": "nangate15/NLDM/NanGate_15nm_OCL_fast_conditional_nldm.lib",
     "nldm_library_file": "nangate15/NLDM/NanGate_15nm_OCL_fast_conditional_nldm.db",
-    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_functional.v",
+    "verilog_sim" : "nangate15/verilog/NanGate_15nm_OCL_conditional.v",
     "corner": {
       "nmos": "fast",
       "pmos": "fast",

@@ -138,7 +138,9 @@ class VCS(HammerSimTool, SynopsysTool):
             if not os.path.exists(v):
                 self.logger.error("Cannot find %s" % v)
                 return False
-            
+        # TODO (franout) make it clever in makefile
+        # Check for duplicate files and remove them
+        abspath_input_files = list(set(abspath_input_files))
         # Grab the ChipTop RTL file and remove from the input files
         # used for the synthesis (just to be sure to elaborate the correct ChipTop module and submodules)
         if self.level.is_gatelevel():

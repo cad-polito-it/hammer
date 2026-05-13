@@ -3,10 +3,11 @@
 #
 #  See LICENSE for licence details.
 
-from hammer.vlsi import HammerSRAMGeneratorTool, SRAMParameters, MMMCCorner
+from hammer.vlsi import MMMCCorner, MMMCCornerType, HammerSRAMGeneratorTool, SRAMParameters
 from hammer.tech import ExtraLibrary, Library
 from typing import List, Dict, Optional
 import os 
+import importlib.resources
 import math
 
 class GenericSRAMGenerator(HammerSRAMGeneratorTool):
@@ -28,13 +29,25 @@ class GenericSRAMGenerator(HammerSRAMGeneratorTool):
         
         tech_cache_dir = os.path.abspath(self.technology.cache_dir)
   
-        if params.family == "1RW" or  params.family == "1R1W" or params.family =="3R2mW" :
+        if params.family == "1RW" or  params.family == "1R1W" or params.family =="3R2mW"  or params.family == "2RW":
             fam_code = params.family
         else:
             self.logger.error(
               "Generic SRAM generator does not support family:{f}".format(
               f=params.family))
-
+        speed_name: Optional[str] = None
+        
+        if corner.type == MMMCCornerType.Setup:
+            speed_name = "slow"
+        elif corner.type == MMMCCornerType.Hold:
+            speed_name = "fast"
+        elif corner.type == MMMCCornerType.Extra:
+            speed_name = "typical"
+        
+        corner_str = "PVT_{volt}V_{temp}C".format(
+            volt=str(corner.voltage.value_in_units("V")).replace(".", "P"),
+            temp=str(int(corner.temp.value_in_units("C"))).replace(".", "P"))
+        
         # Generate Verilog file from template
         verilog_path = "{t}/{n}.v".format(t=tech_cache_dir, n=sram_name)
 
@@ -349,7 +362,109 @@ endmodule
            RAND_WIDTH=math.ceil(params.width / 32), 
            MASKLENGTH=mask_width,
            specify=specify))
+            elif params.family == "2RW" :
+                specify = ""
 
+                for specify_j in range(0, params.width):
+                    for specify_i in range(0, 2):
+                        if specify_i == 0:
+                            specify += "$setuphold(posedge CE1, %s I1[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                            specify += "$setuphold(posedge CE2, %s I2[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_j)
+                        else:
+                            specify += "$setuphold(posedge CE1, %s I1[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                            specify += "$setuphold(posedge CE2, %s I2[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_j)
+                    specify += "(CE1 => O1[%d]) = 0;\n" % (specify_j)
+                    specify += "(CE2 => O2[%d]) = 0;\n" % (specify_j)
+                for specify_k in range(0, math.ceil(math.log2(params.depth))):
+                    for specify_i in range(0, 2):
+                        if specify_i == 0:
+                            specify += "$setuphold(posedge CE1, %s A1[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                            specify += "$setuphold(posedge CE2, %s A2[%d], 0, 0, NOTIFIER);\n" % ("posedge", specify_k)
+                        else:
+                            specify += "$setuphold(posedge CE1, %s A1[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                            specify += "$setuphold(posedge CE2, %s A2[%d], 0, 0, NOTIFIER);\n" % ("negedge", specify_k)
+                
+                
+
+                f.write("""        
+`timescale 1ns/100fs
+module {NAME} (
+  // Read Ports
+  input  [{NUMADDR}-1:0] R0_addr, R1_addr,
+  input                  R0_clk,  R1_clk,
+  input                  R0_en,   R1_en, 
+  output [{WORDLENGTH}-1:0] R0_data, R1_data,
+
+  // Write Ports
+  input  [{NUMADDR}-1:0] W0_addr, W1_addr,
+  input                  W0_clk,  W1_clk,
+  input                  W0_en,   W1_en,
+  input  [{WORDLENGTH}-1:0] W0_data, W1_data,
+  
+);
+
+  reg [{WORDLENGTH}-1:0] ram [0:{NUMWORDS}-1];
+
+  // Read Logic (Pipelined)
+  reg [{NUMADDR}-1:0] r0_addr_pipe, r1_addr_pipe, r2_addr_pipe;
+  
+  always @(posedge R0_clk) if (R0_en) r0_addr_pipe <= R0_addr;
+  always @(posedge R1_clk) if (R1_en) r1_addr_pipe <= R1_addr;
+
+  assign R0_data = ram[r0_addr_pipe];
+  assign R1_data = ram[r1_addr_pipe];
+
+  // Write Logic
+  always @(posedge W0_clk) begin
+    if (W0_en) ram[W0_addr]<= W0_data;
+  end
+
+  always @(posedge W1_clk) begin
+    if (W1_en) ram[W1_addr]<= W1_data;
+  end
+
+reg NOTIFIER;
+specify
+{specify}
+endspecify
+
+`ifndef SYNTHESIS
+`ifdef RANDOMIZE_REG_INIT 
+integer i;
+initial begin
+    for (i = 0; i < {NUMWORDS}; i = i + 1) ram[i] = {{{RAND_WIDTH}{{$urandom()}}}};
+    r0_addr_pipe = {{{RAND_WIDTH}{{$urandom()}}}};
+    r1_addr_pipe = {{{RAND_WIDTH}{{$urandom()}}}};
+end
+`endif
+`endif
+                                      
+endmodule
+""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
+           RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
+
+        # package_dir = importlib.resources.files(self.package)
+
+        # nldm_lib_file = f"{sram_name}_{corner_str}.lib"
+        # lef_file = f"{sram_name}_x4.lef"
+        # gds_file = f"{sram_name}_x4.gds"
+
+        # nldm_lib_dir = package_dir / f"memories/lib/{sram_name}_lib"
+        # lef_dir = package_dir / "memories/lef"
+        # gds_dir = package_dir / "memories/gds"
+
+        # from hammer.tech import Corner, Supplies, Provide
+        # assert speed_name is not None
+        # lib = ExtraLibrary(prefix=None, library=Library(
+        #     name=sram_name,
+        #     nldm_liberty_file=f"{nldm_lib_dir}/{nldm_lib_file}",
+        #     lef_file=f"{lef_dir}/{lef_file}",
+        #     gds_file=f"{gds_dir}/{gds_file}",
+        #     verilog_sim=verilog_path,
+        #     corner=Corner(nmos=speed_name, pmos=speed_name, temperature=str(corner.temp.value_in_units("C")) + " C"),
+        #     supplies=Supplies(GND="0 V", VDD=str(corner.voltage.value_in_units("V")) + " V"),
+        #     provides=[Provide(lib_type="sram", vt=params.vt)]
+        # ))
 
 
         return ExtraLibrary(prefix=None,

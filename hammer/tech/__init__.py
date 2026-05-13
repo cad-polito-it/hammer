@@ -781,6 +781,32 @@ class HammerTechnology:
             raise ValueError("extra_libraries was not a list")
         else:
             return [ExtraLibrary.model_validate(lib) for lib in extra_libs]
+    
+    def get_extra_libraries_name(self) -> List[str]:
+        """
+        Extracts the unique identifying prefix of all external libraries 
+        configured for the current project.
+        
+        This method queries the 'extra_libraries' defined in the environment 
+        (such as SRAMs, IO cells, or analog macros) and returns a list of 
+        their master prefix as defined in the technology technology library metadata.
+
+        Returns:
+            List[str]: A list of strings containing the library prefix. 
+                    Returns an empty list if no extra libraries are defined.
+        """
+        libs = self.get_extra_libraries()
+        
+        # Check if external libraries are empty
+        if len(libs) == 0:
+            return []
+            
+        libs_name = []
+        for lib in libs:
+            # Accesses the 'name' attribute from the Hammer Library object
+            libs_name.append(lib.library.name)
+            
+        return libs_name
 
     def get_available_libraries(self) -> List[Library]:
         """

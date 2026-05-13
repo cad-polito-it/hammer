@@ -652,6 +652,10 @@ fsim.inputs:
   # type: str
   seq_cells: str
 
+  # Path to the slack file used for small delay fault fsim
+  # type: str
+  slack_file: Optional[str]
+
   # SDF File
   # type: str
   sdf_file: Optional[str]
