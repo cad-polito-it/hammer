@@ -486,6 +486,12 @@ atpg.inputs:
 
   spf_file: str
 
+  lbist_spf_file: str
+
+  lbist_capture_cycles_number: int
+
+  lbist_patterns_number: int
+
 # Specific inputs for the simulation tool.
 sim.inputs:
   # Top RTL module for simulation

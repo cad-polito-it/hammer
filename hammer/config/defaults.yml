@@ -766,6 +766,18 @@ atpg.inputs:
   spf_file: ""
   # type: str
 
+  lbist: True
+  # type: bool
+
+  lbist_spf_file: ""
+  # type: str
+
+  lbist_capture_cycles_number: 1
+  # type: int
+
+  lbist_patterns_number: 30
+  # type: int
+
   patterns_file: null
   # type: Optional[str]
 

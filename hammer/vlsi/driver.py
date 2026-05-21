@@ -693,13 +693,16 @@ class HammerDriver:
         atpg_tool.output_level = self.database.get_setting("atpg.inputs.level", nullvalue="")
 
         atpg_tool.fault_model = self.database.get_setting('atpg.inputs.fault_model')
-        atpg_tool.spf_file = self.database.get_setting('atpg.inputs.spf_file')
+        atpg_tool.lbist = self.database.get_setting('atpg.inputs.lbist', False)
+        atpg_tool.spf_file = self.database.get_setting('atpg.inputs.spf_file') if not atpg_tool.lbist else self.database.get_setting('atpg.inputs.lbist_spf_file')
 
 
         atpg_tool.create_patterns = False if self.database.get_setting('atpg.inputs.create_patterns') == "False" else True
         atpg_tool.patterns_file = self.database.get_setting('atpg.inputs.patterns_file')
 
         atpg_tool.faults_file = self.database.get_setting('atpg.inputs.faults_file', None)
+        atpg_tool.lbist_patterns_number = self.database.get_setting('atpg.inputs.lbist_patterns_number')
+        atpg_tool.lbist_capture_cycles_number = self.database.get_setting('atpg.inputs.lbist_capture_cycles_number')
 
         missing_inputs = False
         if atpg_tool.top_module == "":
@@ -1144,6 +1147,7 @@ class HammerDriver:
                 "atpg.inputs.seq_cells": output_dict.get("synthesis.outputs.seq_cells", None),
                 "atpg.inputs.post_synth_sdc": output_dict.get("synthesis.outputs.sdc", None),
                 "atpg.inputs.spf_file": output_dict["synthesis.outputs.spf_file"],
+                "atpg.inputs.lbist_spf_file": output_dict["synthesis.outputs.lbist_spf_file"],
                 "atpg.inputs.level": 'syn',
                 "vlsi.builtins.is_complete": False
             }  # type: Dict[str, Any]
