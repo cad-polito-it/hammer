@@ -41,7 +41,9 @@ class DC(HammerSynthesisTool, SynopsysTool):
         self.output_sdc = self.post_synth_sdc
         self.sdf_file = self.output_sdf_path
         output_spf = os.path.join(self.result_dir, self.top_module + "_test_protocol.spf")
+        lbist_spf = os.path.join(self.result_dir, self.top_module + "_test_protocol_LBIST.spf")
         self.spf_file = output_spf
+        self.lbist_spf_file = lbist_spf
         if self.ran_write_outputs:
             if not os.path.isfile(mapped_v):
                 raise ValueError("Output mapped verilog %s not found" % (mapped_v)) # better error?
@@ -56,6 +58,9 @@ class DC(HammerSynthesisTool, SynopsysTool):
                 self.logger.warning("Output SPF %s not found" % (self.spf_file))
         else:
             self.logger.info("Did not run write_outputs")
+
+        if self.get_setting("synthesis.dc.insert_dft.lbist") and not os.path.isfile(self.lbist_spf_file):
+            self.logger.warning("Output LBIST SPF %s not found" % (self.lbist_spf_file))
 
         return True
 
@@ -96,6 +101,7 @@ class DC(HammerSynthesisTool, SynopsysTool):
         outputs["synthesis.outputs.all_regs"] = self.output_all_regs
         outputs["synthesis.outputs.sdf_file"] = self.output_sdf_path
         outputs["synthesis.outputs.spf_file"] = self.spf_file
+        outputs["synthesis.outputs.lbist_spf_file"] = self.lbist_spf_file
         return outputs
 
     @property
@@ -195,14 +201,12 @@ class DC(HammerSynthesisTool, SynopsysTool):
         self.append("link")
 
         # Set Rams as black boxes
-        sram_libs = self.technology.get_extra_libraries_name()
-        for sram_name in sram_libs:
-            self.append(f"foreach_in_collection ram [get_references -hierarchical \"*{sram_name}*\"] {{")
-            #self.append("set_attribute $ram is_black_box true")
-            self.append("set_attribute $ram is_memory_cell true")
-            self.append("set_attribute $ram is_physical_black_box true" )
-            self.append("set_dont_touch $ram")
-            self.append("}")
+        self.append("foreach_in_collection ram [get_references -hierarchical \"*fakeram*\"] {")
+        #self.append("set_attribute $ram is_black_box true")
+        self.append("set_attribute $ram is_memory_cell true")
+        self.append("set_attribute $ram is_physical_black_box true" )
+        self.append("set_dont_touch $ram")
+        self.append("}")
 
         return True
 
@@ -281,8 +285,12 @@ write_sdf -version 2.1 -significant_digits 9 \\
 
     def generate_dft_reports(self) -> bool:
         self.append("""
-write_test_protocol -output {result_dir}/{design_name}_test_protocol.spf
+write_test_protocol -test_mode SCAN -output {result_dir}/{design_name}_test_protocol.spf
 """.format(result_dir=self.result_dir, design_name=self.top_module))
+        if self.get_setting("synthesis.dc.insert_dft.lbist"):
+            self.append("""
+    write_test_protocol -test_mode LBIST -output {result_dir}/{design_name}_test_protocol_LBIST.spf
+    """.format(result_dir=self.result_dir, design_name=self.top_module))
         self.append("""
 write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
 """.format(result_dir=self.result_dir, design_name=self.top_module))
@@ -305,9 +313,9 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
         # Example: "*RAM_A* *RAM_B*"
         rams_pattern = " ".join([f"\"*{name}*\"" for name in sram_libs])
 
-        return f"""
+        return """
 set_testability_configuration -control_signal test_mode
-set_testability_configuration -target shadow_wrapper -isolate_elements [get_cells -hierarchical [ {rams_pattern} ]]
+set_testability_configuration -target shadow_wrapper -isolate_elements  [get_instances -hierarchical \"*ram*\"]
 
 # get_shadow_wrapper_pins.tcl - get candidate shadow wrapper pins of a cell
 # chrispy@synopsys.com
@@ -315,57 +323,57 @@ set_testability_configuration -target shadow_wrapper -isolate_elements [get_cell
 # v1.0  04/27/2015 chrispy
 #  initial release
 
-proc get_shadow_wrapper_pins {{args}} {{
+proc get_shadow_wrapper_pins {args} {
  parse_proc_arguments -args $args results
- if {{[set cells [get_cells $results(cells)]] eq {{}}}} {{return}}
+ if {[set cells [get_cells $results(cells)]] eq {}} {return}
 
- set pins {{}}
- foreach_in_collection cell $cells {{
-  foreach_in_collection pin [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"] {{
-   if {{[get_attribute -quiet $pin is_clock_pin] eq true}} {{continue}}
-   if {{[get_attribute -quiet $pin is_async_pin] eq true}} {{continue}}
-   switch -exact $results(-direction) {{
-    in {{
-     if {{[get_attribute -quiet $pin signal_type] ne {{}}}} {{continue}}
-     if {{[all_fanin -trace all -flat -startpoints_only -to $pin] eq {{}}}} {{continue}}
-    }}
-    out {{
-     if {{[all_fanout -trace all -flat -endpoints_only -from $pin] eq {{}}}} {{continue}}
-    }}
-   }}
+ set pins {}
+ foreach_in_collection cell $cells {
+  foreach_in_collection pin [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"] {
+   if {[get_attribute -quiet $pin is_clock_pin] eq true} {continue}
+   if {[get_attribute -quiet $pin is_async_pin] eq true} {continue}
+   switch -exact $results(-direction) {
+    in {
+     if {[get_attribute -quiet $pin signal_type] ne {}} {continue}
+     if {[all_fanin -trace all -flat -startpoints_only -to $pin] eq {}} {continue}
+    }
+    out {
+     if {[all_fanout -trace all -flat -endpoints_only -from $pin] eq {}} {continue}
+    }
+   }
    append_to_collection pins $pin
-  }}
- }}
+  }
+ }
 
  return [sort_collection -dictionary $pins full_name]
-}}
+}
 
-define_proc_attributes get_shadow_wrapper_pins \\
- -info "Get candidate shadow wrapper pins of a cell" \\
- -define_args \\
- {{
-    {{-direction "Pin direction to return" direction one_of_string {{required value_help {{values {{in out}}}}}}}}
-    {{cells "Cells to examine" "cells" string required}}
- }}
-
-
-foreach_in_collection cell [get_cells -hierarchical "mem_*_*" -filter "is_memory_cell==true" ] {{
-# add observe points at data input pins
-set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
-
-# add control_01 points at data output pins
-set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
-}}
+define_proc_attributes get_shadow_wrapper_pins \
+ -info "Get candidate shadow wrapper pins of a cell" \
+ -define_args \
+ {
+  {-direction "Pin direction to return" direction one_of_string {required value_help {values {in out}}}}
+  {cells "Cells to examine" "cells" string required}
+ }
 
 
-foreach_in_collection cell [get_cells -hierarchical [{rams_pattern} ]] {{
+foreach_in_collection cell [get_cells -hierarchical "mem_*_*" -filter "is_memory_cell==true" ] {
 # add observe points at data input pins
 set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
 
 # add control_01 points at data output pins
 set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
 
-}}
+}
+
+foreach_in_collection cell [get_cells -hierarchical "*ram*"] {
+# add observe points at data input pins
+set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
+
+# add control_01 points at data output pins
+set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
+
+}
 """
 
     def insert_dft(self) -> bool:
@@ -395,9 +403,16 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         else:
             use_scan_compression = "disable"
 
+        if self.get_setting("synthesis.dc.insert_dft.lbist"):
+            use_lbist = "enable"
+        else:
+            use_lbist = "disable"
+
         self.append(f"set_dft_configuration -bsd {use_bsd} -scan {use_scan} -scan_compression {use_scan_compression} -ieee_1500 disable" )
         self.append("# set_dft_configuration -wrapper enable -fix_clock enable -fix_set enable -fix_reset enable ")
         self.append("# set_wrapper_configuration -class shadow_wrapper  -style shared -use_dedicated_wrapper_clock false -mix_cells true  -safe_state 1 -core [get_references -hierarchical \"*ram*\"] ")
+        self.append("set_autofix_configuration -type xpropagation")
+        self.append("set_autofix_configuration -type clock")
 
         # Define DfT signals
         for clock_port in self.get_setting("synthesis.dc.dft.scan.clock_ports"):
@@ -411,7 +426,7 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
             active_state = reset_port.get("active_state")
             self.append(f"set_dft_signal -view existing_dft -type Reset -port \"{name}\"  -active_state {active_state}")
 
-        # Define/create ports
+        # Define/create ports for SCAN
         for port in self.get_setting("synthesis.dc.dft.scan.ports"):
             name      = port.get("name")
             direction = port.get("direction")
@@ -428,7 +443,7 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         # Add JTAG signals
         self.append("set_dft_signal -view existing_dft -type TDI -port \"%s\" -hookup_pin \"iocell_jtag_TDI/pad\"" % self.get_setting("synthesis.dc.dft.jtag.tdi"))
         self.append("set_dft_signal -view existing_dft -type TRST -port \"%s\" -hookup_pin \"iocell_jtag_reset/pad\" -active_state 1" % self.get_setting("synthesis.dc.dft.jtag.reset"))
-        self.append("set_dft_signal -view existing_dft -type TCK -port \"%s\" -hookup_pin \"iocell_jtag_reset/pad\" -timing [list 45 95] -active_state 1" % self.get_setting("synthesis.dc.dft.jtag.clk"))
+        self.append("set_dft_signal -view existing_dft -type TCK -port \"%s\" -hookup_pin \"iocell_jtag_TCK/pad\" -timing [list 45 95] -active_state 1" % self.get_setting("synthesis.dc.dft.jtag.clk"))
         self.append("set_dft_signal -view existing_dft -type TMS -port \"%s\" -hookup_pin \"iocell_jtag_TMS/pad\" -active_state 1" % self.get_setting("synthesis.dc.dft.jtag.tms"))
         self.append("set_dft_signal -view existing_dft -type TDO -port \"%s\" -hookup_pin \"iocell_jtag_TDO/pad\"" % self.get_setting("synthesis.dc.dft.jtag.tdo"))
 
@@ -440,6 +455,33 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
 
         self.append("set_dft_insertion_configuration -synthesis_optimization none")
         self.append("set_dft_configuration -testability enable")
+
+        # Logic BIST
+        self.append(f"set_dft_configuration -logicbist {use_lbist}")
+        if use_lbist == "enable":
+            # Define and configure test modes
+            self.append("define_test_mode SCAN -usage scan")
+            self.append("define_test_mode LBIST -usage logicbist")
+            self.append("set_scan_configuration -test_mode SCAN -chain_count %d -clock_mixing mix_clocks -style %s" % (self.get_setting("synthesis.dc.dft.scan.chain_count"), self.get_setting("synthesis.dc.dft.scan.style")))
+            self.append("set_logicbist_configuration -test_mode LBIST -base_mode SCAN -chain_count %d -pattern_counter_width %d" % (self.get_setting("synthesis.dc.dft.lbist.chain_count"), self.get_setting("synthesis.dc.dft.lbist.pattern_counter_width")))
+
+            # Define ports for LBIST
+            for port in self.get_setting("synthesis.dc.dft.lbist.ports"):
+                name      = port.get("name")
+                direction = port.get("direction")
+                p_type    = port.get("type")
+                existing  = port.get("exist")
+
+                if not existing:
+                    self.append(f"create_port {name} -direction {direction}" )
+                    view_type = "spec"
+                else:
+                    view_type = "existing_dft"
+                self.append(f"set_dft_signal -test_mode LBIST -view {view_type} -type {p_type} -port \"{name}\"")
+            
+            # To prevent X sources (still something to fix)
+            self.append("set_testability_configuration -target core_wrapper -control_signal test_mode")
+            self.append("set_testability_configuration -target random_resistant -control_signal test_mode")
 
         # Insert Test points for Rams
         if self.get_setting("synthesis.dc.insert_dft.memory_wrapper"):
