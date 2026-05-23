@@ -82,14 +82,16 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
     @property
     def steps(self) -> List[HammerToolStep]:
-        return self.make_steps_from_methods([
+        steps = [
             self.run_build,
             self.run_drc,
             self.run_atpg,
             self.generate_generation_reports,
-            self.run_fault_sim,
-            self.generate_fault_sim_reports
-            ])
+        ]
+        if not self.lbist:
+            steps.extend([self.run_fault_sim,
+            self.generate_fault_sim_reports])
+        return self.make_steps_from_methods(steps)
 
     def do_post_steps(self) -> bool:
         assert super().do_post_steps()
@@ -161,6 +163,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             # Example: set_drc -my_switch on
             self.append(f"set_drc {set_drc_args_str}")
 
+
         # Optional extra args to "run_drc".
         run_drc_args = self.get_setting("atpg.testmax.run_drc_args", nullvalue=[])  # type: List[str]
         run_drc_args_str = " ".join([a for a in run_drc_args if a])
@@ -190,7 +193,11 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             # The default is zero (full credit is given only when detection is on the minimum slack path).
             self.append("set_delay -max_delta_per_fault 0.0")
             
-        spf_path = os.path.abspath(self.spf_file) if self.spf_file is not None else ""
+        if self.lbist:
+            self.append("set_drc -seq_comp_jtag_lbist_mode light_lbist")
+            self.append("set_drc -allow_unstable_set_reset")
+
+        spf_path = os.path.abspath(self.spf_file)
         if run_drc_args_str:
             # Example: run_drc -my_option value <spf>
             self.append(f"run_drc {spf_path} {run_drc_args_str}")
@@ -273,6 +280,9 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             # Optional extra args to "run_atpg" from the Hammer config.
             run_atpg_args = self.get_setting("atpg.testmax.run_atpg_args", nullvalue=[])  # type: List[str]
             run_atpg_args_str = " ".join([a for a in run_atpg_args if a])
+
+            if self.lbist:
+                run_atpg_args_str = f"-jtag_lbist {{1 {self.lbist_patterns_number} {self.lbist_capture_cycles_number}}}"
 
             if run_atpg_args_str:
                 self.append(f'run_atpg {run_atpg_args_str}')
