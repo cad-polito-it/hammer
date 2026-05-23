@@ -82,14 +82,16 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
     @property
     def steps(self) -> List[HammerToolStep]:
-        return self.make_steps_from_methods([
+        steps = [
             self.run_build,
             self.run_drc,
             self.run_atpg,
             self.generate_generation_reports,
-            self.run_fault_sim,
-            self.generate_fault_sim_reports
-            ])
+        ]
+        if not self.lbist:
+            steps.extend([self.run_fault_sim,
+            self.generate_fault_sim_reports])
+        return self.make_steps_from_methods(steps)
 
     def do_post_steps(self) -> bool:
         assert super().do_post_steps()
