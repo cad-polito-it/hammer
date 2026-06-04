@@ -7,6 +7,8 @@ from typing import Optional, Dict, List
 
 from hammer.vlsi import HasSDCSupport, TCLTool, HammerTool
 import hammer.tech
+from hammer.vlsi.constraints import MMMCCorner
+from hammer.utils import optional_map
 from hammer.tech import HammerTechnologyUtils
 
 class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
@@ -91,11 +93,12 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
         return dirname
 
     @property
-    def timing_dbs(self) -> List[str]:
-        # Gather/load libraries.
+    def timing_dbs(self, corner: Optional[MMMCCorner] = None) -> List[str]:
+        pre_filters = optional_map(corner, lambda c: [self.filter_for_mmmc(voltage=c.voltage,
+                                                                           temp=c.temp)])  # type: Optional[List[Callable[[hammer_tech.Library],bool]]]
         return self.technology.read_libs(
             [hammer.tech.filters.timing_db_filter],
-            HammerTechnologyUtils.to_plain_item)
+            HammerTechnologyUtils.to_plain_item, extra_pre_filters=pre_filters)
     @property
     def timing_liberty(self) -> List[str]:
         # Gather/load libraries.
