@@ -1649,7 +1649,7 @@ class LibraryFilterHolder:
         """
         if lib.provides is not None:
             for provided in lib.provides:
-                if provided.lib_type is not None and provided.lib_type == "technology":
+                if provided.lib_type is not None and (provided.lib_type == "technology" or provided.lib_type == "stdcell") :
                     return True
         return False
 
