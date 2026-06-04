@@ -111,9 +111,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         if not hasattr(self, "_output"):
             self.attr_setter("_output", [])
-        else:
-            # Clear previous contents when starting a fresh build
-            self.output.clear()
+
         self.append('# TestMax ATPG build script')
         self.append(f'# top_module = {self.top_module}')
 
