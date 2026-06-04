@@ -149,6 +149,72 @@ class ASAP7Tech(HammerTechnology):
             self.logger.error("GDS patching failed! Check your gdstk, gdspy, and/or ASAP7 PDK installation.")
             sys.exit()
 
+    def fix_scan_cells(self, nlib_path: str) -> None:
+        """Fixing already present scan cells"""
+        self.logger.info("Fixing Scan cells...")
+        test_cells = "\\n".join(['        test_cell () {',
+		'           pin(D) {',
+		'                direction : input;',
+		'           }',
+		'           pin(CLK) {',
+		'               direction : input;',
+		'				clock : true;',
+		'				signal_type: test_scan_clock;',
+		'           }',
+		'           pin(SI) {',
+		'                direction : input;',
+		'                signal_type : test_scan_in;',
+		'           }',
+		'           pin(SE) {',
+		'                direction : input;',
+		'                signal_type : test_scan_enable;',
+		'           }',
+        '           pin(RST) {',
+		'                direction : input;',
+		'           }',
+		'           ff (IQN,IQNN) {',
+		'                next_state         	: "D";',
+		'                clocked_on         	: "CLK";',
+		'           }	     ',
+		'           pin(QN) {',
+		'                direction : output;',
+		'                function : "(IQN RST)";',
+		'                signal_type : test_scan_out;',
+		'          }',
+		'        }',])
+        test_cells_inverted = "\\n".join(['        test_cell () {',
+		'           pin(D) {',
+		'                direction : input;',
+		'           }',
+		'           pin(CLK) {',
+		'               direction : input;',
+		'				clock : true;',
+		'				signal_type: test_scan_clock;',
+		'           }',
+		'           pin(SI) {',
+		'                direction : input;',
+		'                signal_type : test_scan_in;',
+		'           }',
+		'           pin(SE) {',
+		'                direction : input;',
+		'                signal_type : test_scan_enable;',
+		'           }',
+        '           pin(RST) {',
+		'                direction : input;',
+		'           }',
+		'           ff (IQN,IQNN) {',
+		'                next_state         	: "!D";',
+		'                clocked_on         	: "!CLK";',
+		'           }	     ',
+		'           pin(QN) {',
+		'                direction : output;'
+		'                function : "(IQN RST)";',
+		'                signal_type : test_scan_out;',
+		'          }',
+		'        }',])
+        subprocess.call(["sed -i '/cell (SDFHx*/a {test_cell_group}' {nlib}".format(test_cell_group=test_cells, nlib=nlib_path)], shell=True)
+        subprocess.call(["sed -i '/cell (SDFLx*/a {test_cell_group}' {nlib}".format(test_cell_group=test_cells_inverted, nlib=nlib_path)], shell=True)
+
     def fix_icg_libs(self) -> None:
         """
         ICG cells are missing statetable.
@@ -156,8 +222,9 @@ class ASAP7Tech(HammerTechnology):
         try:
             os.makedirs(os.path.join(self.cache_dir, "LIB/NLDM"))
         except:
-            self.logger.info("ICG LIBs already fixed")
-            return None
+            #self.logger.info("ICG LIBs already fixed")
+            #return None
+            pass
 
         try:
             self.logger.info("Fixing ICG LIBs...")
@@ -176,6 +243,7 @@ class ASAP7Tech(HammerTechnology):
                 # Change function to state_function for pin GCLK
                 nlib = nlib.replace(".7z","").replace(".gz","")
                 subprocess.call(["7z x {olib} -so | sed '/ICGx*/a {stbl}' | sed '/CLK & IQ/s/function/state_function/g' > {nlib}".format(olib=olib, stbl=statetable_text, nlib=nlib)], shell=True)
+                self.fix_scan_cells(nlib)
         except:
             os.rmdir(os.path.join(self.cache_dir, "LIB/NLDM"))
             os.rmdir(os.path.join(self.cache_dir, "LIB"))
@@ -195,6 +263,50 @@ class ASAP7Tech(HammerTechnology):
             HammerTool.make_replacement_hook("generate_drc_run_file", asap7_generate_drc_run_file)
             ]}
         return hooks.get(tool_name, [])
+
+    def get_tech_syn_hooks(self, tool_name:str) ->List[HammerToolHookAction]:
+        hooks = {"dc": [
+            HammerTool.make_persistent_hook(asap7_generate_db_files)
+            ]}
+        return hooks.get(tool_name, [])
+
+def asap7_generate_db_files(ht: HammerTool) -> bool:
+    assert isinstance(ht, HammerSynthesisTool)
+    library_file = {}
+    convert_tcl_file = ht.script_dir + "/fromLib2db.tcl"
+    convert_tcl = ""
+    ## Get liberty files 
+    for liberty in ht.timing_liberty:
+        if "SRAM" not in liberty:
+            lib_name = os.path.splitext(os.path.basename(liberty))[0]
+            db = os.path.join( os.path.dirname(liberty) ,lib_name + ".db")
+            ## Update the tech json with DB files
+            library_file[liberty] = db
+            convert_tcl += f"read_lib {liberty}\n write_lib -f db -output {db} {lib_name}\n\n"
+    
+    new_libraries = []
+
+    for lib in ht.technology.config.libraries:
+        # Check if this library has the liberty file set but lacks the library file
+        if lib.nldm_liberty_file is not None and "SRAM" not in lib.nldm_liberty_file:
+            lib_path = lib.nldm_liberty_file.replace("cache", ht.technology.cache_dir)
+            updated_lib = lib.copy(update={'nldm_library_file': library_file[lib_path]})
+            new_libraries.append(updated_lib)
+        else:
+            new_libraries.append(lib)
+    
+    convert_tcl += "quit"
+
+    with open(convert_tcl_file, "w") as f:
+        f.write(convert_tcl)
+
+    # Re-assign the updated list back to the technology config
+    ht.technology.config.libraries = new_libraries
+    ## Generate DB files 
+    lc_bin = os.path.basename(ht.get_setting("synthesis.library_compiler.lc_bin"))
+    result = subprocess.call([f"{lc_bin} -f {convert_tcl_file} "], shell=True)
+
+    return result == 0
 
     def get_tech_syn_hooks(self, tool_name:str) ->List[HammerToolHookAction]:
         hooks = {"dc": [

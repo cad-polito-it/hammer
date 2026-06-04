@@ -10,6 +10,7 @@ import os
 import re
 
 from hammer.vlsi import HammerSynthesisTool, HammerToolStep
+from hammer.vlsi.constraints import MMMCCorner, MMMCCornerType
 from hammer.logging import HammerVLSILogging
 import hammer.tech
 from hammer.tech import HammerTechnologyUtils
@@ -115,9 +116,10 @@ class DC(HammerSynthesisTool, SynopsysTool):
         if self.get_setting("synthesis.dc.dft_insertion"):
             steps.append(self.insert_dft)
         steps.extend([self.optimize_design,
-            self.generate_reports,
-            self.generate_dft_reports,
-            self.write_outputs,
+            self.generate_reports])
+        if self.get_setting("synthesis.dc.dft_insertion"):
+            steps.append(self.generate_dft_reports)
+        steps.extend([self.write_outputs,
             self.write_regs])
         return self.make_steps_from_methods(steps)
 
@@ -152,12 +154,18 @@ class DC(HammerSynthesisTool, SynopsysTool):
         # Search Path Setup
         self.append("set_app_var search_path \". %s $search_path\"" % self.result_dir)
 
+        corners = self.get_mmmc_corners()  # type: List[MMMCCorner]
+        
+        corner_tt = next((corner for corner in corners if corner.type == MMMCCornerType.Extra), None)
+
+        dbs = []
         # Library setup
-        for db in self.timing_dbs:
+        for db in self.timing_dbs(corner_tt):
             if not os.path.exists(db):
                 self.logger.error("Cannot find %s" % db)
                 return False
-        self.append("set_app_var target_library \"%s\"" % ' '.join(self.timing_dbs))
+            dbs.append(db)
+        self.append("set_app_var target_library \"%s\"" % ' '.join(dbs))
         self.append("set_app_var synthetic_library dw_foundation.sldb")
         self.append("set_app_var link_library \"* $target_library $synthetic_library\"")
 
@@ -303,12 +311,16 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
         
         # Create a space-separated string of patterns for Tcl
         # Example: "*RAM_A* *RAM_B*"
-        rams_pattern = " ".join([f"\"*{name}*\"" for name in sram_libs])
+        rams_pattern = [f"\"*{name}*\"" for name in sram_libs]
 
-        return f"""
+        command_str = f"""
 set_testability_configuration -control_signal test_mode
-set_testability_configuration -target shadow_wrapper -isolate_elements [get_cells -hierarchical [ {rams_pattern} ]]
-
+"""
+        for ram in rams_pattern:
+            command_str += f"""
+set_testability_configuration -target shadow_wrapper -isolate_elements [get_cells -hierarchical {ram}]
+"""
+        command_str += f"""
 # get_shadow_wrapper_pins.tcl - get candidate shadow wrapper pins of a cell
 # chrispy@synopsys.com
 #
@@ -356,9 +368,10 @@ set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction i
 # add control_01 points at data output pins
 set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
 }}
-
-
-foreach_in_collection cell [get_cells -hierarchical [{rams_pattern} ]] {{
+"""
+        for ram in rams_pattern:
+            command_str += f"""
+foreach_in_collection cell [get_cells -hierarchical {ram}] {{
 # add observe points at data input pins
 set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
 
@@ -367,6 +380,7 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
 
 }}
 """
+        return command_str
 
     def insert_dft(self) -> bool:
         # Let's keep them here, in case we will need those signals, clock and reset are defined through the yml
@@ -404,6 +418,7 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
             name = clock_port.get("name")
             active_state = clock_port.get("active_state")
             timings = " ".join(clock_port.get("timings"))
+            # TODO add existing or view and change order ?
             self.append(f"set_dft_signal -view existing_dft -type ScanClock -port \"{name}\" -timing [list {timings}] -active_state {active_state}")
 
         for reset_port in self.get_setting("synthesis.dc.dft.reset_ports"):
