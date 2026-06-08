@@ -16,6 +16,9 @@ import hammer.tech
 from hammer.tech import HammerTechnologyUtils
 from hammer.common.synopsys import SynopsysTool
 
+from hammer.tech.specialcells import CellType
+
+
 class DC(HammerSynthesisTool, SynopsysTool):
     def fill_outputs(self) -> bool:
         # Check that the regs paths were written properly if the write_regs step was run
@@ -213,6 +216,18 @@ class DC(HammerSynthesisTool, SynopsysTool):
             self.append("set_dont_touch $ram")
             self.append("}")
 
+        if self.get_setting("synthesis.clock_gating_mode" , "") == "auto":
+            self.insert_clock_gating = True
+            # Set clock gating cells 
+            # TODO (franout): could they be useful? 
+            cgcells = self.technology.get_special_cell_by_type(CellType.CTSGate)
+            
+            if self.get_setting("synthesis.dc.dft_insertion"):
+                self.append(f"set_clock_gating_style -sequential_cell latch -control_signal scan_enable -control_point before")
+            else:
+                self.append(f"set_clock_gating_style -sequential_cell latch -control_point before")
+        else:
+            self.insert_clock_gating = False
         return True
 
     def apply_constraints(self) -> bool:
@@ -390,7 +405,14 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         reset_active_negated = [0 if reset.active_negated else 1 for reset in self.get_reset_ports()]
         self.append("set compile_delete_unloaded_sequential_cells true")
         self.append("set_scan_configuration -style %s" % self.get_setting("synthesis.dc.dft.scan.style"))
-        self.append("compile -scan")
+        
+        # Allow unstable set reset signals
+        self.append("set_dft_drc_configuration -allow_se_set_reset_fix true")
+
+        if self.insert_clock_gating:
+            self.append("compile -scan -gate_clock")
+        else:
+            self.append("compile -scan")
 
         self.append("set_scan_configuration -chain_count %d -clock_mixing mix_clocks" % self.get_setting("synthesis.dc.dft.scan.chain_count"))
 
@@ -409,6 +431,18 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
             use_scan_compression = "enable"
         else:
             use_scan_compression = "disable"
+
+        # Test se and Test mode signals created by default
+        self.append("create_port test_se -direction in")
+        self.append("create_port test_mode -direction in ")
+        self.append("set_dft_signal -view spec -type ScanEnable -port test_se -active_state 1")
+        self.append("set_dft_signal -view spec -type TestMode -port test_mode -active_state 1")
+
+        if self.insert_clock_gating:
+            # Disable scan insertion, enable only clock-gating cell test pin connections  
+            self.append(f"set_dft_configuration -bsd disable -scan disable -scan_compression disable -ieee_1500 disable -connect_clock_gating enable" )
+            # Run insert_dft to connect the clock-gating cell test pins only
+            self.append("insert_dft")
 
         self.append(f"set_dft_configuration -bsd {use_bsd} -scan {use_scan} -scan_compression {use_scan_compression} -ieee_1500 disable" )
         self.append("# set_dft_configuration -wrapper enable -fix_clock enable -fix_set enable -fix_reset enable ")
@@ -434,7 +468,6 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
             name = clock_port.get("name")
             active_state = clock_port.get("active_state")
             timings = " ".join(clock_port.get("timings"))
-            # TODO add existing or view and change order ?
             self.append(f"set_dft_signal -view existing_dft -type ScanClock -port \"{name}\" -timing [list {timings}] -active_state {active_state}")
 
         for reset_port in self.get_setting("synthesis.dc.dft.reset_ports"):
@@ -448,12 +481,6 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         self.append("set_dft_signal -view existing_dft -type TCK -port \"%s\" -hookup_pin \"iocell_jtag_TCK/pad\" -timing [list 45 95] -active_state 1" % self.get_setting("synthesis.dc.dft.jtag.clk"))
         self.append("set_dft_signal -view existing_dft -type TMS -port \"%s\" -hookup_pin \"iocell_jtag_TMS/pad\" -active_state 1" % self.get_setting("synthesis.dc.dft.jtag.tms"))
         self.append("set_dft_signal -view existing_dft -type TDO -port \"%s\" -hookup_pin \"iocell_jtag_TDO/pad\"" % self.get_setting("synthesis.dc.dft.jtag.tdo"))
-
-        # Test se and Test mode signals created by default
-        self.append("create_port test_se -direction in")
-        self.append("create_port test_mode -direction in ")
-        self.append("set_dft_signal -view spec -type ScanEnable -port test_se -active_state 1  -usage clock_gating")
-        self.append("set_dft_signal -view spec -type TestMode -port test_mode -active_state 1")
 
         self.append("set_dft_insertion_configuration -synthesis_optimization none")
         self.append("set_dft_configuration -testability enable")
