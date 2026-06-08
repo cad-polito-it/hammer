@@ -160,7 +160,7 @@ class DC(HammerSynthesisTool, SynopsysTool):
 
         dbs = []
         # Library setup
-        for db in self.timing_dbs(corner_tt):
+        for db in self.timing_dbs(corner = corner_tt):
             if not os.path.exists(db):
                 self.logger.error("Cannot find %s" % db)
                 return False
