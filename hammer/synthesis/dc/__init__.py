@@ -114,6 +114,7 @@ class DC(HammerSynthesisTool, SynopsysTool):
             self.elaborate_design,
             self.apply_constraints]
         if self.get_setting("synthesis.dc.dft_insertion"):
+            steps.append(self.configure_dft)
             steps.append(self.insert_dft)
         steps.extend([self.optimize_design,
             self.generate_reports])
@@ -382,7 +383,7 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
 """
         return command_str
 
-    def insert_dft(self) -> bool:
+    def configure_dft(self) -> bool:
         # Let's keep them here, in case we will need those signals, clock and reset are defined through the yml
         clocks = [clock.name for clock in self.get_clock_ports()]
         resets = [reset.name for reset in self.get_reset_ports()]
@@ -461,6 +462,9 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         if self.get_setting("synthesis.dc.insert_dft.memory_wrapper"):
             self.append(self._insert_test_points())
 
+        return True
+    
+    def insert_dft(self) -> bool:
         # Preview all test structures to be inserted
         self.append("preview_dft -show all -test_wrappers all")
         self.append("report_dft_configuration")
