@@ -475,11 +475,18 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         # runs TestMAX Advisor to compute test points
         self.append("run_test_point_analysis")
         self.append("preview_dft -test_points all")
+
+        # Set autofix for avoid violations and increase testability
+        self.append("set_dft_configuration -fix_clock enable -fix_set enable -fix_reset enable")
+        self.append("set_autofix_configuration -type clock -control_signal test_mode")
+        self.append("set_autofix_configuration -type set -method gate -fix_latch enable")
+        self.append("set_autofix_configuration -type reset -method gate -fix_latch enable")
+        
         # See the preview of DfT
         self.append("preview_dft ")
-        self.append("dft_drc -verbose")
+        self.append("create_test_protocol")
         self.append("insert_dft")
-
+        self.append("dft_drc -verbose")
         return True
 
     @property
