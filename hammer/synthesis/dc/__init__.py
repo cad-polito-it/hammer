@@ -95,7 +95,7 @@ class DC(HammerSynthesisTool, SynopsysTool):
         outputs["synthesis.outputs.sdc"] = self.output_sdc
         outputs["synthesis.outputs.seq_cells"] = self.output_seq_cells
         outputs["synthesis.outputs.all_regs"] = self.output_all_regs
-        outputs["synthesis.outputs.sdf_file"] = self.output_sdf_path
+        outputs["synthesis.outputs.sdf_file"] = self.sdf_file
         outputs["synthesis.outputs.spf_file"] = self.spf_file
         return outputs
 
