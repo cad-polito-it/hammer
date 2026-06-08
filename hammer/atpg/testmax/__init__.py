@@ -153,6 +153,8 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         # Optional "set_drc" arguments (can be an empty list or contain empty strings).
         set_drc_args = self.get_setting("atpg.testmax.set_drc_args", nullvalue=[])  # type: List[str]
+        # Allow unstable set reset signals
+        set_drc_args.append("-allow_unstable_set_reset")
         set_drc_args_str = " ".join([a for a in set_drc_args if a])
 
         if set_drc_args_str:
