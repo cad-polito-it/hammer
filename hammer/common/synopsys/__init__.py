@@ -7,6 +7,8 @@ from typing import Optional, Dict, List
 
 from hammer.vlsi import HasSDCSupport, TCLTool, HammerTool
 import hammer.tech
+from hammer.vlsi.constraints import MMMCCorner
+from hammer.utils import optional_map
 from hammer.tech import HammerTechnologyUtils
 
 class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
@@ -90,12 +92,13 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
         os.makedirs(dirname, exist_ok=True)
         return dirname
 
-    @property
-    def timing_dbs(self) -> List[str]:
-        # Gather/load libraries.
+    # Not a property since we need to filter based on the corner
+    def timing_dbs(self, corner: Optional[MMMCCorner] = None) -> List[str]:
+        pre_filters = optional_map(corner, lambda c: [self.filter_for_mmmc(voltage=c.voltage,
+                                                                           temp=c.temp)])  # type: Optional[List[Callable[[hammer_tech.Library],bool]]]
         return self.technology.read_libs(
             [hammer.tech.filters.timing_db_filter],
-            HammerTechnologyUtils.to_plain_item)
+            HammerTechnologyUtils.to_plain_item, extra_pre_filters=pre_filters)
     @property
     def timing_liberty(self) -> List[str]:
         # Gather/load libraries.
@@ -155,7 +158,7 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
     
     def map_power_spec_name(self) -> str:
         """
-        Return the CPF or UPF flag name for Cadence tools.
+        Return the CPF or UPF flag name for Synopsys tools.
         """
 
         power_spec_type = str(self.get_setting("vlsi.inputs.power_spec_type"))  # type: str
@@ -170,7 +173,7 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
 
     def create_power_spec(self) -> str:
         """
-        Generate a power specification file for Cadence tools.
+        Generate a power specification file for Synopsys tools.
         """
 
         power_spec_type = str(self.get_setting("vlsi.inputs.power_spec_type"))  # type: str
@@ -195,15 +198,14 @@ class SynopsysTool(HasSDCSupport, TCLTool, HammerTool):
 
     def generate_power_spec_commands(self) -> List[str]:
         """
-        Generate commands to load a power specification for Cadence tools.
+        Generate commands to load a power specification for Synopsys tools.
         """
 
         power_spec_file = self.create_power_spec()
         power_spec_arg = self.map_power_spec_name()
 
         return ["load_upf  {path}".format(path=power_spec_file),
-                f"{power_spec_arg}",
-                "commit_power_intent"]
+                f"{power_spec_arg}"]
 
     def child_modules_tcl(self) -> str:
         """

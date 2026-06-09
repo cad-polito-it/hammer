@@ -34,7 +34,9 @@ class ASAP7Tech(HammerTechnology):
                 shutil.rmtree(self.cache_dir)
                 sys.exit()
         self.generate_multi_vt_gds()
+        # TODO: (franout) verify if it works for cadence flow
         self.fix_icg_libs()
+        self.fix_primitives()
 
     def generate_multi_vt_gds(self) -> None:
         """
@@ -149,6 +151,290 @@ class ASAP7Tech(HammerTechnology):
             self.logger.error("GDS patching failed! Check your gdstk, gdspy, and/or ASAP7 PDK installation.")
             sys.exit()
 
+    def fix_scan_cells(self, nlib_path: str) -> None:
+        """Fixing already present scan cells"""
+        self.logger.info("Fixing Scan cells...")
+        test_cells = "\\n".join(['        test_cell () {',
+		'           pin(D) {',
+		'                direction : input;',
+		'           }',
+		'           pin(CLK) {',
+		'               direction : input;',
+		'           }',
+		'           pin(SI) {',
+		'                direction : input;',
+		'                signal_type : test_scan_in;',
+		'           }',
+		'           pin(SE) {',
+		'                direction : input;',
+		'                signal_type : test_scan_enable;',
+		'           }',
+        '           ff (IQN,IQNN) {',
+		'                next_state : "!D";',
+		'                clocked_on         	: "CLK";',
+		'           }	     ',
+		'           pin(QN) {',
+		'                direction : output;',
+		'                function : "IQN";',
+		'                signal_type : test_scan_out;',
+		'          }',
+		'        }',])
+        test_cells_inverted = "\\n".join(['        test_cell () {',
+		'           pin(D) {',
+		'                direction : input;',
+		'           }',
+		'           pin(CLK) {',
+		'               direction : input;',
+		'           }',
+		'           pin(SI) {',
+		'                direction : input;',
+		'                signal_type : test_scan_in;',
+		'           }',
+		'           pin(SE) {',
+		'                direction : input;',
+		'                signal_type : test_scan_enable;',
+		'           }',
+		'           ff (IQN,IQNN) {',
+		'                next_state : "!D";',
+		'                clocked_on         	: "!CLK";',
+		'           }	     ',
+		'           pin(QN) {',
+		'                direction : output;'
+		'                function : "IQN";',
+		'                signal_type : test_scan_out;',
+		'          }',
+		'        }',])
+
+        # Add nextstate
+        subprocess.call(["sed -i '/cell (SDF.*/,/^}}/ {{ /pin (SE) {{/a \\      nextstate_type: scan_enable; \n}}' {nlib}".format(nlib=nlib_path)], shell=True)
+        subprocess.call(["sed -i '/cell (SDF.*/,/^}}/ {{ /pin (D) {{/a \\      nextstate_type: data; \n}}' {nlib}".format(nlib=nlib_path)], shell=True)
+        subprocess.call(["sed -i '/cell (SDF.*/,/^}}/ {{ /pin (SI) {{/a \\      nextstate_type: scan_in; \n}}' {nlib}".format(nlib=nlib_path)], shell=True)
+        subprocess.call(["sed -i '/cell (SDFHx*/a {test_cell_group}' {nlib}".format(test_cell_group=test_cells, nlib=nlib_path)], shell=True)
+        subprocess.call(["sed -i '/cell (SDFLx*/a {test_cell_group}' {nlib}".format(test_cell_group=test_cells_inverted, nlib=nlib_path)], shell=True)    
+
+
+    def delete_pin_in_specific_cell(self, input_file, cell_regex_str, output_file=None):
+        """
+        Removes the pin (IQ) block ONLY within cells matching cell_regex_str.
+        """
+        if output_file is None:
+            output_file = input_file
+
+        cell_pattern = re.compile(cell_regex_str)
+        pin_start_pattern = re.compile(r'pin\s*\(IQ\)\s*\{')
+        
+        # Matches a closing brace that sits alone or starts a line
+        # (Typical for cell and pin boundaries in Liberty files)
+        closing_brace_pattern = re.compile(r'^\s*\}')
+
+        remaining_lines = []
+        
+        in_target_cell = False
+        delete_mode = False
+        brace_count = 0  # To track exactly when we leave the target cell
+
+        with open(input_file, 'r') as f:
+            for line in f:
+                
+                # --- PHASE 1: Find the right cell ---
+                if not in_target_cell:
+                    if cell_pattern.search(line):
+                        in_target_cell = True
+                        brace_count = line.count('{') - line.count('}')
+                    remaining_lines.append(line)
+                    continue
+
+                # --- PHASE 2: Inside the target cell ---
+                # Track braces to know when this specific cell completely ends
+                brace_count += line.count('{') - line.count('}')
+
+                if not delete_mode:
+                    # Look for the pin block start inside our target cell
+                    if pin_start_pattern.search(line):
+                        delete_mode = True
+                        continue  # Skip this line (start deleting)
+                    
+                    remaining_lines.append(line)
+                else:
+                    # We are deleting. Look for the pin's closing brace
+                    if closing_brace_pattern.match(line):
+                        delete_mode = False  # Stop deleting after this line
+                    continue  # Skip all lines while delete_mode is True
+
+                # If brace_count hits 0, we have exited the targeted cell block
+                if brace_count <= 0:
+                    in_target_cell = False
+
+        # Write the modified contents back
+        with open(output_file, 'w') as f:
+            f.writelines(remaining_lines)
+
+    def insert_text_in_file(self, input_file_path, output_file_path, cell_pattern, insert_after_pattern, insert_text):
+        """
+        Reads a file line-by-line and inserts text after a pattern inside a cell block.
+        Safely handles cases where input_file_path and output_file_path are identical.
+        """
+        if not os.path.exists(input_file_path):
+            raise FileNotFoundError(f"Input file '{input_file_path}' not found.")
+
+        # Check if we are modifying the file in-place
+        is_inplace = os.path.abspath(input_file_path) == os.path.abspath(output_file_path)
+        
+        # If in-place, write to a temporary file first so we don't erase our source data
+        actual_output_path = output_file_path + ".tmp" if is_inplace else output_file_path
+
+        inside_target_cell = False
+        inserted_any = False
+
+        try:
+            with open(input_file_path, "r") as in_file, open(actual_output_path, "w") as out_file:
+                for line in in_file:
+                    if re.search(cell_pattern, line):
+                        inside_target_cell = True
+                    
+                    out_file.write(line)
+                    
+                    if inside_target_cell and re.search(insert_after_pattern, line):
+                        out_file.write(insert_text + "\n")
+                        inserted_any = True
+                        
+                    if inside_target_cell and line.strip() == "}":
+                        inside_target_cell = False
+
+            # If it was an in-place operation, cleanly swap the temp file with the original
+            if is_inplace:
+                os.replace(actual_output_path, output_file_path)
+
+            return inserted_any
+
+        except Exception as e:
+            if is_inplace and os.path.exists(actual_output_path):
+                os.remove(actual_output_path)
+            raise e
+    
+    
+    def fix_primitives(self) -> None:
+            """
+            Finds Verilog files in the ASAP7 tech library, copies/extracts them 
+            to the cache directory, and patches the broken 'altos_dff_sr_err' sequential UDP.
+            """
+            verilog_cache_dir = os.path.join(self.cache_dir, "Verilog")
+            os.makedirs(verilog_cache_dir,exist_ok=True)
+            
+            try:
+                self.logger.info("Fixing broken Verilog UDP primitives...")
+
+                # Define the exact corrected primitive block
+                corrected_primitive = """
+/* Patched primitive by HAMMER */
+primitive altos_dff_sr_err (q, clk, d, s, r);
+output q;
+reg q;
+input clk, d, s, r;
+
+    table
+        //  clk     d     s     r     : q : q_next
+        //-----------------------------------------
+        // Asynchronous/Stable level behavior (keeps old state)
+            ?       ?     ?     ?     : ? : - ; 
+
+        // Clock falling edge transitions (keeps old state)
+           (10)     ?     ?     ?     : ? : - ;
+           (x0)     ?     ?     ?     : ? : - ;
+           (1x)     ?     ?     ?     : ? : - ;
+
+        // Asynchronous pin edge transitions (keeps old state)
+            ?       ?     ?    (01)   : ? : - ;
+            ?       ?    (01)   ?     : ? : - ;
+            ?       ?     ?    (x1)   : ? : - ;
+            ?       ?    (x1)   ?     : ? : - ;
+
+        // Valid Clock rising edge transitions (Data -> Output)
+           (01)     0     0     0     : ? : 0 ;
+           (01)     1     0     0     : ? : 1 ;
+           (0x)     0     0     0     : ? : 0 ;
+           (0x)     1     0     0     : ? : 1 ;
+
+        // Handles Unknown/X transitions safely
+           (01)     x     0     0     : ? : x ;
+           (01)     ?     x     ?     : ? : x ;
+           (01)     ?     ?     x     : ? : x ;
+        endtable
+endprimitive"""
+
+                # Locate the source Verilog directory from the ASAP7 installation settings
+                tech_verilog_dir = os.path.join(self.get_setting("technology.asap7.stdcell_install_dir"), "Verilog")
+                old_vfiles = glob.glob(os.path.join(tech_verilog_dir, "*"))
+                
+                if not old_vfiles:
+                    raise FileNotFoundError("No Verilog files found in the source tech directory.")
+
+                # Map source file paths to the new cache target paths
+                new_vfiles = list(map(lambda v: os.path.join(verilog_cache_dir, os.path.basename(v)), old_vfiles))
+
+                # Regular expression to match the malformed primitive
+                primitive_pattern = re.compile(r"primitive\s+altos_dff_sr_err\b.*?endprimitive", re.DOTALL)
+                
+                # Map by filename instead of absolute source paths
+                verilog_file_map = {}
+                
+                # 2. Iterate and patch each file
+                for ovfile, nvfile in zip(old_vfiles, new_vfiles):
+                    filename = os.path.basename(ovfile)
+                    
+                    # Copy into cache dir
+                    subprocess.call([f"cp {ovfile} {nvfile}"], shell=True)
+
+                    # Read the code
+                    with open(nvfile, "r") as f:
+                        content = f.read()
+                    
+                    # Apply the regex patch if the target primitive exists inside the file
+                    if primitive_pattern.search(content):
+                        patched_content = primitive_pattern.sub(corrected_primitive, content)
+                        
+                        # Write back the patched code
+                        with open(nvfile, "w") as f:
+                            f.write(patched_content)
+                        self.logger.info(f"Patched primitive in: {filename}")
+                    
+                    # Always track the cached file path indexed by its base filename
+                    verilog_file_map[filename] = nvfile
+
+                self.logger.info("Successfully fixed all Verilog primitives!")
+                new_libraries = []
+
+                for lib in self.config.libraries:
+                    update_dict = {}
+                    
+                    # 2. Handle Verilog Primitive updates
+                    if hasattr(lib, 'verilog_sim') and lib.verilog_sim is not None:
+                        # Extract the filename from the hammer configuration path string
+                        v_basename = os.path.basename(lib.verilog_sim)
+                        
+                        # Match against our base filename map
+                        if v_basename in verilog_file_map:
+                            update_dict['verilog_sim'] = verilog_file_map[v_basename]
+        
+                    # 3. Apply updates to the database configuration if changes were made
+                    if update_dict:
+                        updated_lib = lib.copy(update=update_dict)
+                        new_libraries.append(updated_lib)
+                    else:
+                        new_libraries.append(lib)
+
+                # 4. Commit the new library definitions back to the technology config environment
+                self.config.libraries = new_libraries
+
+            except Exception as e:
+                if os.path.exists(verilog_cache_dir):
+                    try:
+                        os.rmdir(verilog_cache_dir)
+                    except OSError:
+                        pass
+                self.logger.error(f"Failed to fix Verilog primitives: {str(e)}")
+                sys.exit(1)
+            
     def fix_icg_libs(self) -> None:
         """
         ICG cells are missing statetable.
@@ -161,21 +447,41 @@ class ASAP7Tech(HammerTechnology):
 
         try:
             self.logger.info("Fixing ICG LIBs...")
-            statetable_text = "\\n".join([
-               '\    statetable ("CLK ENA SE", "IQ") {',
-                '      table : "L L L : - : L ,  L L H : - : H , L H L : - : H , L H H : - : H , H - - : - : N ";',
-                '    }'])
-            gclk_func = "CLK & IQ"
+
+            latch_function = "\n".join([
+            ' \t\t latch ("IQ", "IQN") {',
+            '\t\t data_in : "ENA | SE"; ',
+            '\t\t enable  : "!CLK"; ',
+            '\t\t }'])
+
             lib_dir = os.path.join(self.get_setting("technology.asap7.stdcell_install_dir"), "LIB/NLDM")
             old_libs = glob.glob(os.path.join(lib_dir, "*"))
             new_libs = list(map(lambda l: os.path.join(self.cache_dir, "LIB/NLDM", os.path.basename(l)), old_libs))
 
             for olib, nlib in zip(old_libs, new_libs):
                 # Use gzip and sed directly rather than gzip python module
-                # Add the statetable to ICG cells
-                # Change function to state_function for pin GCLK
+                # Add the function for latch type
                 nlib = nlib.replace(".7z","").replace(".gz","")
-                subprocess.call(["7z x {olib} -so | sed '/ICGx*/a {stbl}' | sed '/CLK & IQ/s/function/state_function/g' > {nlib}".format(olib=olib, stbl=statetable_text, nlib=nlib)], shell=True)
+                subprocess.call(["7z x {olib} -so > {nlib}".format(olib=olib, nlib=nlib)],shell=True)
+                # Add latch function
+                self.insert_text_in_file( input_file_path=nlib,
+                output_file_path=nlib,
+                cell_pattern=r'cell\s*\(ICGx.*L\)',
+                insert_after_pattern=r'clock_gating_integrated_cell',
+                insert_text=latch_function
+                    )
+            
+                self.insert_text_in_file( input_file_path=nlib,
+                output_file_path=nlib,
+                cell_pattern=r'cell\s*\(ICGx.*R\)',
+                insert_after_pattern=r'clock_gating_integrated_cell',
+                insert_text=latch_function
+                    )
+                
+                # Remove pin IQ 
+                self.delete_pin_in_specific_cell(nlib, r"cell\s*\(ICGx.*\)")
+                # Add test cell definition 
+                self.fix_scan_cells(nlib)
         except:
             os.rmdir(os.path.join(self.cache_dir, "LIB/NLDM"))
             os.rmdir(os.path.join(self.cache_dir, "LIB"))
@@ -212,6 +518,10 @@ def asap7_generate_db_files(ht: HammerTool) -> bool:
         if "SRAM" not in liberty:
             lib_name = os.path.splitext(os.path.basename(liberty))[0]
             db = os.path.join( os.path.dirname(liberty) ,lib_name + ".db")
+            # Skip if they already exists
+            if os.path.exists(db):
+                ht.logger.info("Liberty files already converted")
+                return True 
             ## Update the tech json with DB files
             library_file[liberty] = db
             convert_tcl += f"read_lib {liberty}\n write_lib -f db -output {db} {lib_name}\n\n"
@@ -236,9 +546,14 @@ def asap7_generate_db_files(ht: HammerTool) -> bool:
     ht.technology.config.libraries = new_libraries
     ## Generate DB files 
     lc_bin = os.path.basename(ht.get_setting("synthesis.library_compiler.lc_bin"))
-    result = subprocess.call([f"{lc_bin} -f {convert_tcl_file} "], shell=True)
-
-    return result == 0
+    # Let dump in the synthesis output log the library conversion
+    args = [
+        lc_bin,
+        "-no_log",
+        "-f", convert_tcl_file
+    ]
+    ht.run_executable(args = args ,cwd=ht.run_dir)
+    return True
 
 def asap7_innovus_settings(ht: HammerTool) -> bool:
     assert isinstance(ht, HammerPlaceAndRouteTool), "Innovus settings only for par"

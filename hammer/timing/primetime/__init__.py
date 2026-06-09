@@ -57,12 +57,18 @@ class PrimeTime(HammerTimingTool, SynopsysTool):
         # Search Path Setup
         self.append("set_app_var search_path \". %s $search_path\"" % self.result_dir)
 
+        corners = self.get_mmmc_corners()  # type: List[MMMCCorner]
+        
+        corner_tt = next((corner for corner in corners if corner.type == MMMCCornerType.Extra), None)
+
+        dbs = []
         # Library setup
-        for db in self.timing_dbs:
+        for db in self.timing_dbs(corner = corner_tt):
             if not os.path.exists(db):
                 self.logger.error("Cannot find %s" % db)
                 return False
-        self.append("set_app_var target_library \"%s\"" % ' '.join(self.timing_dbs))
+            dbs.append(db)
+        self.append("set_app_var target_library \"%s\"" % ' '.join(dbs))
         self.append("set_app_var link_library \"* $target_library\"")
 
         return True
@@ -72,7 +78,13 @@ class PrimeTime(HammerTimingTool, SynopsysTool):
         """ Load design and analysis corners """
         
         # Read timing databases
-        for db in self.timing_dbs:
+        
+        corners = self.get_mmmc_corners()  # type: List[MMMCCorner]
+        
+        corner_tt = next((corner for corner in corners if corner.type == MMMCCornerType.Extra), None)
+
+        # Library setup
+        for db in self.timing_dbs(corner = corner_tt):
             self.append("read_db %s" % db)
         
         if not self.check_input_files([".v", ".v.gz"]):
@@ -90,7 +102,10 @@ class PrimeTime(HammerTimingTool, SynopsysTool):
         self.append("set_design_top " + self.top_module)
         self.append("link_design " + self.top_module)
 
-      
+        
+        # Specify timing and design rule constraints set from the synthesis
+        self.append("read_sdc %s" % self.post_synth_sdc)
+        
         # Read Back-annotated delay data
         if self.sdf_file is not None:
             self.append("read_sdf -cond_use max -load_delay net -verbose " + os.path.join(os.getcwd(), self.sdf_file))
@@ -111,8 +126,6 @@ class PrimeTime(HammerTimingTool, SynopsysTool):
         self.append("set timing_prelayout_scaling false")
         self.append("set pin_arrival_and_slack TRUE")
         
-        # Specify timing and design rule constraints set from the synthesis
-        self.append("read_sdc %s" % self.post_synth_sdc)
         # set_input_delay
         # set_output_delay
         # set_min_pulse_width

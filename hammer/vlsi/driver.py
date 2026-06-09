@@ -911,6 +911,7 @@ class HammerDriver:
         timing_tool.post_synth_sdc = self.database.get_setting("timing.inputs.post_synth_sdc")
         timing_tool.spefs = self.database.get_setting("timing.inputs.spefs")
         timing_tool.def_file = self.database.get_setting("timing.inputs.def_file")
+        timing_tool.sdf_file = self.database.get_setting("timing.inputs.sdf_file")
 
         self.timing_tool = timing_tool
 

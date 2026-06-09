@@ -475,7 +475,7 @@ synthesis.inputs:
 
 synthesis:
 # Syntheis tool settings
-  clock_gating_mode: auto # Clock gating mode.
+  clock_gating_mode: empty # Clock gating mode.
   # type: str
   # This tells the tool how to handle clock gating.
   # Valid options:

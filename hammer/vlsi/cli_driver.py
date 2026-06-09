@@ -467,6 +467,20 @@ class CLIDriver:
         """
         return list()
 
+    def get_extra_atpg_hooks(self) -> List[HammerToolHookAction]:
+        """
+        Return a list of extra ATPG deliverable hooks in this project.
+        To be overridden by subclasses.
+        """
+        return list()
+    
+    def get_extra_fsim_hooks(self) -> List[HammerToolHookAction]:
+        """
+        Return a list of extra Fault Simulation deliverable hooks in this project.
+        To be overridden by subclasses.
+        """
+        return list()
+
     def create_synthesis_action(self, custom_hooks: List[HammerToolHookAction],
                                 pre_action_func: Optional[Callable[[HammerDriver], None]] = None,
                                 post_load_func: Optional[Callable[[HammerDriver], None]] = None,
@@ -512,7 +526,7 @@ class CLIDriver:
                           pre_action_func: Optional[Callable[[HammerDriver], None]] = None,
                           post_load_func: Optional[Callable[[HammerDriver], None]] = None,
                           post_run_func: Optional[Callable[[HammerDriver], None]] = None) -> CLIActionConfigType:
-        hooks = self.get_extra_sim_hooks() + custom_hooks  # type: List[HammerToolHookAction]
+        hooks = self.get_extra_fsim_hooks() + custom_hooks  # type: List[HammerToolHookAction]
         return self.create_action("fsim", hooks if len(hooks) > 0 else None,
                                   pre_action_func, post_load_func, post_run_func)
 
@@ -520,7 +534,7 @@ class CLIDriver:
                           pre_action_func: Optional[Callable[[HammerDriver], None]] = None,
                           post_load_func: Optional[Callable[[HammerDriver], None]] = None,
                           post_run_func: Optional[Callable[[HammerDriver], None]] = None) -> CLIActionConfigType:
-        hooks = self.get_extra_sim_hooks() + custom_hooks  # ATPG typically ties into sim hooks
+        hooks = self.get_extra_atpg_hooks() + custom_hooks  # ATPG typically ties into sim hooks
         return self.create_action("atpg", hooks if len(hooks) > 0 else None,
                                   pre_action_func, post_load_func, post_run_func)
 
