@@ -321,20 +321,18 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
         self.ran_write_regs = True
         return True
 
-    def _insert_test_points(self) -> str:
-        """Insert Test Points for Rams"""
-        sram_libs = self.technology.get_extra_libraries_name()
+    def insert_test_points(self, modules: List[str]) -> str:
+        """Insert Test Points for generic Modules"""
         
-        # Create a space-separated string of patterns for Tcl
-        # Example: "*RAM_A* *RAM_B*"
-        rams_pattern = [f"\"*{name}*\"" for name in sram_libs]
+        if modules is None:
+            self.logger.error("Modules for test point insertions are empty")
 
         command_str = f"""
 set_testability_configuration -control_signal test_mode
 """
-        for ram in rams_pattern:
+        for module in modules:
             command_str += f"""
-set_testability_configuration -target shadow_wrapper -isolate_elements [get_references -hierarchical  {ram}]
+set_testability_configuration -target shadow_wrapper -isolate_elements [get_references -hierarchical  {module}]
 """
         command_str += f"""
 # get_shadow_wrapper_pins.tcl - get candidate shadow wrapper pins of a cell
@@ -376,7 +374,7 @@ define_proc_attributes get_shadow_wrapper_pins \\
     {{cells "Cells to examine" "cells" string required}}
  }}
 
-
+# add specifically for memory
 foreach_in_collection cell [get_cells -hierarchical "mem_*_*" -filter "is_memory_cell==true" ] {{
 # add observe points at data input pins
 set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
@@ -385,9 +383,9 @@ set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction i
 set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
 }}
 """
-        for ram in rams_pattern:
+        for module in modules:
             command_str += f"""
-foreach_in_collection cell [get_references -hierarchical {ram}] {{
+foreach_in_collection cell [get_references -hierarchical {module}] {{
 # add observe points at data input pins
 set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
 
@@ -487,7 +485,11 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
 
         # Insert Test points for Rams
         if self.get_setting("synthesis.dc.insert_dft.memory_wrapper"):
-            self.append(self._insert_test_points())
+            sram_libs = self.technology.get_extra_libraries_name()
+            # Create a space-separated string of patterns for Tcl
+            # Example: "*RAM_A* *RAM_B*"
+            rams_pattern = [f"\"*{name}*\"" for name in sram_libs]
+            self.append(self.insert_test_points(rams_pattern))
 
         return True
     

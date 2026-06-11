@@ -249,6 +249,10 @@ class HammerSynthesisTool(HammerTool):
     def fill_outputs(self) -> bool:
         pass
 
+    @abstractmethod
+    def insert_test_points(self, modules : List[str]) -> str:
+        pass
+
     def export_config_outputs(self) -> Dict[str, Any]:
         outputs = deepdict(super().export_config_outputs())
         outputs["synthesis.outputs.output_files"] = self.output_files
