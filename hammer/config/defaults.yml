@@ -482,6 +482,62 @@ synthesis:
   # auto - Turn on automatic clock gating inference in CAD tools.
   # empty - Do not do any clock gating.
 
+  # Design for testability mode. (bool)
+  # Master switch to control Design for Testability (DFT) insertion.
+  # If set to true, the synthesis tool will inject hardware test structures into the netlist.
+  dft_insertion: false
+
+  # Sub-properties to selectively toggle structural DFT hardware features.
+  insert_dft:
+    # Controls the insertion of internal scan chains (replacing standard flip-flops with scan registers).
+    # type: bool
+    scan: false
+    # Controls the insertion of Boundary Scan cells (IEEE 1149.1 / BSD) for board-level continuity testing.
+    # type: bool
+    bsd: false
+    # Enables or disables test wrappers around internal memory blocks (e.g., SRAMs) to facilitate MBIST testing.
+    # type: bool
+    memory_wrapper: false
+    # Toggles test compression hardware (e.g., decompressors/compactors) to reduce tester memory requirements.
+    # type: bool
+    scan_compression: false
+
+  # Architectural specifications for internal scan chain structures.
+  dft.scan:
+      # The specific methodology/style of scan cells to use (e.g., "muxed_flip_flop" or "clocked_lssd").
+      # type: str
+      style: null
+      # The total number of parallel scan chains the tool should construct across the design.
+      # type: int
+      chain_count: 1
+      # List of mappings defining the structural input/output test data ports (SI and SO pins).
+      # type: List[Dict[str, str]]
+      ports:  []
+      # List specifying which functional or dedicated clock ports will drive the test shift registers.
+      # type: List[Dict[str, Any]]
+      clock_ports: []
+      # List detailing reset or clear ports that must be controlled or gated during test mode operations.
+      # type: List[Dict[str, str]]
+      reset_ports: []
+  
+  # Pin-mapping assignments for a standard 4-wire or 5-wire JTAG (IEEE 1149.1) Test Access Port (TAP) controller.
+  dft.jtag:
+    # TCK (Test Clock) - Dedicated clock input signal that drives the state transitions of the JTAG TAP controller.
+    # type: str
+    clk: null
+    # TDI (Test Data In) - Serial input port used to shift instructions and data registers into the test logic.
+    # type: str
+    tdi: null
+    # TDO (Test Data Out) - Serial output port used to read back status, register values, or internal test states.
+    # type: str
+    tdo: null
+    # TMS (Test Mode Select) - Input control signal evaluated on the rising edge of TCK to navigate the TAP state machine.
+    # type: str
+    tms: null
+    # TRST (Test Reset) - Optional asynchronous active-low pin used to hard-reset the JTAG TAP controller independently of the system.
+    # type: str
+    reset: null
+
 synthesis.submit:
 # inherit settings from vlsi.submit but allow us to override them
   command: "${vlsi.submit.command}"
@@ -758,24 +814,39 @@ atpg.inputs:
   # type: str
 
   create_patterns: True
+  # Create patterns or reuse existing patterns 
   # type: bool
 
   fault_model: "saf"
+  # Fault model type (stuck-at, transition delay and small delay faults)
   # type: str
 
   spf_file: ""
+  # Stil procedure file for test pattern generation 
   # type: str
 
   patterns_file: null
+  # Optional list of pattern files to be reused 
   # type: Optional[str]
 
   faults_file: null
+  # Fault list path for incremental test pattern generation 
   # type: Optional[str]
 
   sdf_file: null # SDF File
   # type: str
   # Standard Delay Format file for use in timing annotated sims
   # leave as null if not in use
+
+
+atpg:
+  # Desired fault coverage before atpg is stopped
+  # type: float
+  target_coverage: 100.00
+
+  # Desired maximum test pattersn before atpg is stopped
+  # type: int 
+  max_test_patterns: 0
 
 
 atpg.submit:
