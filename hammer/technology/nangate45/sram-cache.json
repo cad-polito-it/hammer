@@ -23,7 +23,7 @@
         "write enable port polarity": "active high",
         "mask port name" : "RW0_wmask",
         "mask port polarity" : "active high",
-        "mask granularity" : 32
+        "mask granularity" : 1
       }
     ]
 },{
@@ -51,7 +51,7 @@
         "write enable port polarity": "active high",
         "mask port name" : "RW0_wmask",
         "mask port polarity" : "active high",
-        "mask granularity" : 32
+        "mask granularity" : 1
       }
     ]
 },
@@ -96,6 +96,7 @@
   "family" : "2RmW",
   "vt" : "SRAM",
   "mask"  : "true",
+  "mux" : 1,
   "ports": [ {
     "address port name" : "R0_addr",
     "address port polarity" : "active high",
@@ -128,6 +129,7 @@
   "family" : "3R2mW",
   "vt" : "SRAM",
   "mask"  : "true",
+  "mux" : 4,
   "ports": [ {
     "address port name" : "R0_addr",
     "address port polarity" : "active high",

@@ -232,6 +232,46 @@ synthesis:
   # Clock gating mode.
   clock_gating_mode: str
 
+# Master switch to enable or disable Design for Testability (DFT) insertion during synthesis.
+  dft_insertion: bool
+
+  # Specifies which specific DFT features should be structural/hardware-inserted into the design.
+  insert_dft:
+    # Enable internal scan chains (replacing standard flip-flops with scan flip-flops).
+    scan: Optional[bool]
+    # Enable Boundary Scan Description / IEEE 1149.1 Boundary Scan cells for board-level testing.
+    bsd: Optional[bool]
+    # Enable test wrappers around memories (SRAMs) to isolate them or hook them up to MBIST.
+    memory_wrapper: Optional[bool]
+    # Enable test compression hardware (decompressor/compactor) to reduce tester memory and test time.
+    scan_compression: Optional[bool]
+
+  # Detailed architectural settings for internal scan chain configuration.
+  dft.scan:
+      # Scan methodology style (e.g., "muxed_flip_flop", "clocked_lssd").
+      style: Optional[str]
+      # Total target number of parallel scan chains to build in the design.
+      chain_count: Optional[int]
+      # Configuration list for scan data pins mapping scan input (SI) and scan output (SO) paths.
+      ports:  Optional[list[dict[str, str]]]
+      # Specification of clock ports used exclusively or shared for driving scan shifting operations.
+      clock_ports: Optional[list[dict[str, Any]]]
+      # Specification of reset/clear ports that need to be disabled or controlled during test mode.
+      reset_ports: Optional[list[dict[str, str]]]
+  
+  # Pin-mapping assignments for the standard 4-wire or 5-wire JTAG (IEEE 1149.1) Test Access Port (TAP).
+  dft.jtag:
+    # Test Clock pin (TCK) - Provides the clock signal for the JTAG TAP controller state machine.
+    clk: Optional[str]
+    # Test Data In pin (TDI) - Serial input pin for test instructions and data.
+    tdi: Optional[str]
+    # Test Data Out pin (TDO) - Serial output pin for test instructions and data.
+    tdo: Optional[str]
+    # Test Mode Select pin (TMS) - Controls the state transitions of the TAP controller.
+    tms: Optional[str]
+    # Test Reset pin (TRST) - Optional asynchronous active-low reset for the TAP controller logic.
+    reset: Optional[str]
+
 # inherit settings from vlsi.submit but allow us to override them
 synthesis.submit:
   command: str
@@ -473,18 +513,38 @@ atpg.inputs:
   # type: str
   seq_cells: str
 
-  # SDF File
+  # Standard delay format File for Small delay fault model 
   # type: str
   sdf_file: Optional[str]
 
+  # Create patterns or reuse existing patterns 
+  # type: bool
   create_patterns: bool
-  fault_model: str
 
+  # Optional list of pattern files to be reused 
+  # type: Optional[str]
   patterns_file: Optional[str]
 
+  # Fault model type (stuck-at, transition delay and small delay faults)
+  # type: str
+  fault_model: str
+
+  # Fault list path for incremental test pattern generation 
+  # type: Optional[str]
   faults_file: Optional[str]
 
+  # Stil procedure file for test pattern generation 
+  # type: str
   spf_file: str
+
+atpg:
+  # Desired fault coverage before atpg is stopped
+  # type: float
+  target_coverage: float
+
+  # Desired maximum test pattersn before atpg is stopped
+  # type: int 
+  max_test_patterns: int
 
 # Specific inputs for the simulation tool.
 sim.inputs:
