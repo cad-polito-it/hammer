@@ -259,10 +259,13 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         set_faults_args = self.get_setting("atpg.testmax.set_faults_args", nullvalue=[])  # type: List[str]
         set_faults_args_str = " ".join([a for a in set_faults_args if a])
 
+        self.append(f'set_atpg -coverage {self.get_setting("atpg.target_coverage", nullvalue=100.00)}')
+        self.append(f'set_faults -model {self.atpg_fault_model}')
+
+        # Additional options
         if set_faults_args_str:
-            self.append(f'set_faults -model {self.atpg_fault_model} {set_faults_args_str}')
-        else:
-            self.append(f'set_faults -model {self.atpg_fault_model}')
+            self.append(f'set_faults {set_faults_args_str}')
+        
         self._load_faults()
 
         if self.fault_model == "sdf" :
@@ -275,6 +278,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         if self.create_patterns:
             set_atpg_args = self.get_setting("atpg.testmax.set_atpg_args", nullvalue=[])
             set_atpg_args_str = " ".join([a for a in set_atpg_args if a])
+
+            target_max_patterns = f'-patterns {self.get_setting("atpg.max_test_patterns", nullvalue=0)}'
+
+            self.append(f'set_atpg {target_max_patterns}')
 
             if set_atpg_args_str:
                 self.append(f'set_atpg {set_atpg_args_str}')

@@ -29,7 +29,7 @@ class GenericSRAMGenerator(HammerSRAMGeneratorTool):
         
         tech_cache_dir = os.path.abspath(self.technology.cache_dir)
   
-        if params.family == "1RW" or  params.family == "1R1W" or params.family =="3R2mW"  or params.family == "2RW":
+        if params.family == "1RW" or  params.family == "1R1W" or params.family =="3R2mW"  or params.family == "2RW" or params.family == "2RmW":
             fam_code = params.family
         else:
             self.logger.error(
@@ -130,6 +130,7 @@ endmodule
 """.format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
            RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
             elif params.family == "2RmW":
+                mask_width = math.ceil(params.width/params.mux)
                 specify = ""
                 for specify_j in range(0, params.width):
                     for specify_i in range(0, 2):
@@ -158,7 +159,7 @@ module {NAME} (
   input                   W0_clk,
   output [{WORDLENGTH}-1:0] R0_data,
   input  [{WORDLENGTH}-1:0] W0_data,
-  input                   W0_wmask,
+  input  [{MASK}-1:0]     W0_wmask,
   input                   R0_en,
   input                   W0_en
 );
@@ -169,7 +170,7 @@ module {NAME} (
   wire [{WORDLENGTH}-1:0] ram_R_0_data;
   wire [{WORDLENGTH}-1:0] ram_W_0_data;
   wire [{NUMADDR}-1:0] ram_W_0_addr;
-  wire  ram_W_0_mask;
+  wire [{MASK}-1:0]    ram_W_0_mask;
   wire  ram_W_0_en;
   reg [{NUMADDR}-1:0] ram_R_0_addr_pipe_0;
   assign ram_R_0_addr = ram_R_0_addr_pipe_0;
@@ -180,9 +181,15 @@ module {NAME} (
   assign R0_data = ram_R_0_data;
   assign ram_W_0_mask = W0_wmask;
 
+  wire [{WORDLENGTH}-1:0] full_bit_mask = {{ {{8{{ram_W_0_mask[3]}}}}, 
+                                              {{8{{ram_W_0_mask[2]}}}}, 
+                                              {{8{{ram_W_0_mask[1]}}}}, 
+                                              {{8{{ram_W_0_mask[0]}}}} }};
+                        
   always @(posedge W0_clk) begin
-    if (ram_W_0_en & ram_W_0_mask) begin
-      ram[ram_W_0_addr] <= ram_W_0_data;
+    if (ram_W_0_en) begin
+      ram[ram_W_0_addr] <= (ram_W_0_data & full_bit_mask) | 
+                                (ram[ram_W_0_addr]  & ~full_bit_mask);
     end
   end
   always @(posedge R0_clk) begin
@@ -204,9 +211,10 @@ end // initial
 `endif // RANDOMIZE
 `endif // SYNTHESIS
 endmodule
-""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
-           RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
+""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name_v,
+           RAND_WIDTH=math.ceil(params.width / 32), specify=specify, MASK=mask_width))
             elif params.family == "1RW":
+                mask_width = params.mux
                 specify = ""
                 for specify_j in range(0, params.width):
                     for specify_i in range(0, 2):
@@ -235,7 +243,7 @@ module {NAME} (
   output [{WORDLENGTH}-1:0] RW0_rdata,
   input                   RW0_en,
   input                   RW0_wmode,
-  input                   RW0_wmask
+  input  [{MASK}-1:0]     RW0_wmask
 );
 
   reg [{WORDLENGTH}-1:0] ram [0:{NUMWORDS}-1];
@@ -245,7 +253,7 @@ module {NAME} (
   wire [{WORDLENGTH}-1:0] ram_RW_0_r_data;
   wire [{WORDLENGTH}-1:0] ram_RW_0_w_data;
   wire [{NUMADDR}-1:0]    ram_RW_0_w_addr;
-  wire                    ram_RW_0_w_mask;
+  wire [{MASK}-1:0]       ram_RW_0_w_mask;
   wire                    ram_RW_0_w_en;
   reg                     ram_RW_0_r_en_pipe_0;
   reg [{NUMADDR}-1:0]     ram_RW_0_r_addr_pipe_0;
@@ -260,10 +268,11 @@ module {NAME} (
   assign ram_RW_0_w_en   = RW0_en & RW0_wmode;
 
   assign RW0_rdata = ram_RW_0_r_data;
-
+                
   always @(posedge RW0_clk) begin
-    if (ram_RW_0_w_en & ram_RW_0_w_mask) begin
-      ram[ram_RW_0_w_addr] <= ram_RW_0_w_data;
+    if (ram_RW_0_w_en) begin
+      ram[ram_RW_0_w_addr] <= (ram_RW_0_w_data & ram_RW_0_w_mask) | 
+                                (ram[ram_RW_0_w_addr] & ~ram_RW_0_w_mask);   
     end
     ram_RW_0_r_en_pipe_0 <= RW0_en & ~RW0_wmode;
     if (RW0_en & ~RW0_wmode) begin
@@ -285,10 +294,10 @@ end // initial
 `endif // RANDOMIZE
 `endif // SYNTHESIS
 endmodule
-""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
-           RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
+""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name_v,
+           RAND_WIDTH=math.ceil(params.width / 32), specify=specify, MASK=mask_width))
             elif params.family == "3R2mW":
-                mask_width = 8
+                mask_width = math.ceil(params.width/params.mux)
                 # Generate timing checks for all 5 ports (3 Read, 2 Write)
                 specify = ""
                 # Add checks for Read Ports 0, 1, 2 and Write Ports 0, 1
@@ -442,30 +451,6 @@ end
 endmodule
 """.format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
            RAND_WIDTH=math.ceil(params.width / 32), specify=specify))
-
-        # package_dir = importlib.resources.files(self.package)
-
-        # nldm_lib_file = f"{sram_name}_{corner_str}.lib"
-        # lef_file = f"{sram_name}_x4.lef"
-        # gds_file = f"{sram_name}_x4.gds"
-
-        # nldm_lib_dir = package_dir / f"memories/lib/{sram_name}_lib"
-        # lef_dir = package_dir / "memories/lef"
-        # gds_dir = package_dir / "memories/gds"
-
-        # from hammer.tech import Corner, Supplies, Provide
-        # assert speed_name is not None
-        # lib = ExtraLibrary(prefix=None, library=Library(
-        #     name=sram_name,
-        #     nldm_liberty_file=f"{nldm_lib_dir}/{nldm_lib_file}",
-        #     lef_file=f"{lef_dir}/{lef_file}",
-        #     gds_file=f"{gds_dir}/{gds_file}",
-        #     verilog_sim=verilog_path,
-        #     corner=Corner(nmos=speed_name, pmos=speed_name, temperature=str(corner.temp.value_in_units("C")) + " C"),
-        #     supplies=Supplies(GND="0 V", VDD=str(corner.voltage.value_in_units("V")) + " V"),
-        #     provides=[Provide(lib_type="sram", vt=params.vt)]
-        # ))
-
 
         return ExtraLibrary(prefix=None,
                library=Library(name = sram_name, verilog_sim=verilog_path))
