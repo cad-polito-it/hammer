@@ -145,6 +145,8 @@ class DC(HammerSynthesisTool, SynopsysTool):
     def init_environment(self) -> bool:
         # The following setting removes new variable info messages from the end of the log file
         self.append("set_app_var sh_new_variable_message false")
+        # Print out why register cannot be scan replaced
+        self.append("set compile_seqmap_report_non_scan_mapping true")
 
         # Actually use specified number of cores
         self.append("set disable_multicore_resource_checks true")
@@ -321,82 +323,42 @@ write_scan_def -output {result_dir}/{design_name}_report_dft.scandef
         self.ran_write_regs = True
         return True
 
-    def insert_test_points(self, modules: List[str]) -> str:
+    def insert_test_points(self, modules: List[str] = []) -> str:
         """Insert Test Points for generic Modules"""
         
-        if modules is None:
+        if len(modules) < 1:
             self.logger.error("Modules for test point insertions are empty")
 
         command_str = f"""
-set_testability_configuration -control_signal test_mode
+set_testability_configuration -control_signal test_mode -clock_signal {{{[f'"{clock_port.get("name")}"' for clock_port in self.get_setting("synthesis.dft.scan.clock_ports")][0]}}}
+set_testability_configuration -target untestable_logic
 """
         for module in modules:
             command_str += f"""
 set_testability_configuration -target shadow_wrapper -isolate_elements [get_references -hierarchical  {module}]
 """
-        command_str += f"""
-# get_shadow_wrapper_pins.tcl - get candidate shadow wrapper pins of a cell
-# chrispy@synopsys.com
-#
-# v1.0  04/27/2015 chrispy
-#  initial release
-
-proc get_shadow_wrapper_pins {{args}} {{
- parse_proc_arguments -args $args results
- if {{[set cells [get_cells $results(cells)]] eq {{}}}} {{return}}
-
- set pins {{}}
- foreach_in_collection cell $cells {{
-  foreach_in_collection pin [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"] {{
-   if {{[get_attribute -quiet $pin is_clock_pin] eq true}} {{continue}}
-   if {{[get_attribute -quiet $pin is_async_pin] eq true}} {{continue}}
-   switch -exact $results(-direction) {{
-    in {{
-     if {{[get_attribute -quiet $pin signal_type] ne {{}}}} {{continue}}
-     if {{[all_fanin -trace all -flat -startpoints_only -to $pin] eq {{}}}} {{continue}}
-    }}
-    out {{
-     if {{[all_fanout -trace all -flat -endpoints_only -from $pin] eq {{}}}} {{continue}}
-    }}
-   }}
-   append_to_collection pins $pin
-  }}
- }}
-
- return [sort_collection -dictionary $pins full_name]
-}}
-
-define_proc_attributes get_shadow_wrapper_pins \\
- -info "Get candidate shadow wrapper pins of a cell" \\
- -define_args \\
- {{
-    {{-direction "Pin direction to return" direction one_of_string {{required value_help {{values {{in out}}}}}}}}
-    {{cells "Cells to examine" "cells" string required}}
- }}
-
-# add specifically for memory
-foreach_in_collection cell [get_cells -hierarchical "mem_*_*" -filter "is_memory_cell==true" ] {{
-# add observe points at data input pins
-set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
-
-# add control_01 points at data output pins
-set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
-}}
-"""
+    
         for module in modules:
             command_str += f"""
-foreach_in_collection cell [get_references -hierarchical {module}] {{
+set cells [get_references -hierarchical {module}]
+# Check if there are cells matching {module}
+if {{ [llength $cells] > 0 }} {{
+foreach_in_collection cell  $cells {{
 # add observe points at data input pins
 set_test_point_element -type observe [get_shadow_wrapper_pins $cell -direction in]
 
 # add control_01 points at data output pins
 set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -direction out]
 
+}}
 }}
 """
         return command_str
 
     def configure_dft(self) -> bool:
+        # Enhanced report for DfT insertion set to true 
+        self.append("set_app_var test_disable_enhanced_dft_drc_reporting false")
+        
         # Let's keep them here, in case we will need those signals, clock and reset are defined through the yml
         clocks = [clock.name for clock in self.get_clock_ports()]
         resets = [reset.name for reset in self.get_reset_ports()]
@@ -416,19 +378,19 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
 
         # Enable DfT
         if self.get_setting("synthesis.insert_dft.bsd"):
-            use_bsd = "enable"
+            self._use_bsd = "enable"
         else:
-            use_bsd = "disable"
+            self._use_bsd = "disable"
 
         if self.get_setting("synthesis.insert_dft.scan"):
-            use_scan = "enable"
+            self._use_scan = "enable"
         else:
-            use_scan = "disable"
+            self._use_scan = "disable"
 
         if self.get_setting("synthesis.insert_dft.scan_compression"):
-            use_scan_compression = "enable"
+            self._use_scan_compression = "enable"
         else:
-            use_scan_compression = "disable"
+            self._use_scan_compression = "disable"
 
         # Test se and Test mode signals created by default
         self.append("create_port test_se -direction in")
@@ -442,9 +404,7 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
             # Run insert_dft to connect the clock-gating cell test pins only
             self.append("insert_dft")
 
-        self.append(f"set_dft_configuration -bsd {use_bsd} -scan {use_scan} -scan_compression {use_scan_compression} -ieee_1500 disable" )
-        self.append("# set_dft_configuration -wrapper enable -fix_clock enable -fix_set enable -fix_reset enable ")
-        self.append("# set_wrapper_configuration -class shadow_wrapper  -style shared -use_dedicated_wrapper_clock false -mix_cells true  -safe_state 1 -core [get_references -hierarchical \"*ram*\"] ")
+        self.append(f"set_dft_configuration -bsd {self._use_bsd} -scan {self._use_scan} -scan_compression {self._use_scan_compression} -ieee_1500 disable -connect_clock_gating disable" )
 
 
         # Define/create ports
@@ -480,9 +440,50 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         self.append("set_dft_signal -view existing_dft -type TMS -port \"%s\" -hookup_pin \"iocell_jtag_TMS/pad\" -active_state 1" % self.get_setting("synthesis.dft.jtag.tms"))
         self.append("set_dft_signal -view existing_dft -type TDO -port \"%s\" -hookup_pin \"iocell_jtag_TDO/pad\"" % self.get_setting("synthesis.dft.jtag.tdo"))
 
-        self.append("set_dft_insertion_configuration -synthesis_optimization none")
+
+
         self.append("set_dft_configuration -testability enable")
 
+        # Define the function used for test point inserion
+        self.append("""# get_shadow_wrapper_pins.tcl - get candidate shadow wrapper pins of a cell
+# chrispy@synopsys.com
+#
+# v1.0  04/27/2015 chrispy
+#  initial release
+
+proc get_shadow_wrapper_pins {args} {
+ parse_proc_arguments -args $args results
+ if {[set cells [get_cells $results(cells)]] eq {}} {return}
+
+ set pins {}
+ foreach_in_collection cell $cells {
+  foreach_in_collection pin [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"] {
+   if {[get_attribute -quiet $pin is_clock_pin] eq true} {continue}
+   if {[get_attribute -quiet $pin is_async_pin] eq true} {continue}
+   switch -exact $results(-direction) {
+    in {
+     if {[get_attribute -quiet $pin signal_type] ne {}} {continue}
+     if {[all_fanin -trace all -flat -startpoints_only -to $pin] eq {}} {continue}
+    }
+    out {
+     if {[all_fanout -trace all -flat -endpoints_only -from $pin] eq {}} {continue}
+    }
+   }
+   append_to_collection pins $pin
+  }
+ }
+
+ return [sort_collection -dictionary $pins full_name]
+}
+
+define_proc_attributes get_shadow_wrapper_pins \\
+ -info "Get candidate shadow wrapper pins of a cell" \\
+ -define_args \\
+ {
+    {-direction "Pin direction to return" direction one_of_string {required value_help {values {in out}}}}
+    {cells "Cells to examine" "cells" string required}
+ }
+""")
         # Insert Test points for Rams
         if self.get_setting("synthesis.insert_dft.memory_wrapper"):
             sram_libs = self.technology.get_extra_libraries_name()
@@ -494,23 +495,25 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         return True
     
     def insert_dft(self) -> bool:
+        self.append("set_dft_insertion_configuration -map_effort high -synthesis_optimization all -route_scan_enable true -route_scan_clock true -route_scan_serial true -preserve_design_name false -unscan true")
         # Preview all test structures to be inserted
-        self.append("preview_dft -show all -test_wrappers all")
         self.append("report_dft_configuration")
 
         # Insert DFT and write out design
-        self.append("create_test_protocol")
         self.append("dft_drc -verbose")
+        self.append("create_test_protocol")
+        self.append("preview_dft")
         # runs TestMAX Advisor to compute test points
         self.append("run_test_point_analysis")
         self.append("preview_dft -test_points all")
+        self.append("preview_dft -show all -test_wrappers all")
 
+
+        # TODO (franout) : do we need autofix? 
         # Set autofix for avoid violations and increase testability
-        self.append("set_dft_configuration -fix_clock enable -fix_set enable -fix_reset enable")
-        self.append("set_autofix_configuration -type clock -control_signal test_mode")
-        self.append("set_autofix_configuration -type set -method gate -fix_latch enable")
-        self.append("set_autofix_configuration -type reset -method gate -fix_latch enable")
-        
+        # self.append("set_autofix_configuration -type set -control_signal test_mode -test_data [get_ports test_si*] ")                
+        # self.append("set_autofix_configuration -type reset -control_signal test_mode -test_data reset_io -fix_data enable -fix_latch enable") 
+        # self.append("set_autofix_configuration -type clock -control_signal test_mode -test_data clock_uncore -fix_data enable -fix_latch enable")
         # See the preview of DfT
         self.append("preview_dft ")
         self.append("create_test_protocol")
