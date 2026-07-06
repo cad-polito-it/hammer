@@ -68,20 +68,10 @@ class Nangate45SRAMGenerator(OpenROADTool, HammerSRAMGeneratorTool):
         dst_lef ="{}/{}.lef".format(tech_cache_dir, sram_name)
 
         if not os.path.exists(dst_lib):
-          try:
-            os.symlink(src_lib, dst_lib)
-          except FileExistsError:
-            self.logger.info(f"{dst_lib} already exist")
-          except OSError as e:
-              self.logger.fatal(e)
+          os.symlink(src_lib, dst_lib)
 
         if not os.path.exists(dst_lef):
-          try:
-            os.symlink(src_lef, dst_lef)
-          except FileExistsError:
-              self.logger.info(f"{dst_lib} already exist")
-          except OSError as e:
-              self.logger.fatal(e)
+          os.symlink(src_lef, dst_lef)
 
       # Generate Verilog file from template
         verilog_path = "{t}/{n}.v".format(t=tech_cache_dir, n=sram_name_v)
@@ -248,7 +238,7 @@ endmodule
 """.format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name_v,
            RAND_WIDTH=math.ceil(params.width / 32), specify=specify, MASK=mask_width))
             elif params.family == "1RW":
-                mask_width = math.ceil(params.width/params.mux)
+                mask_width = params.mux
                 specify = ""
                 for specify_j in range(0, params.width):
                     for specify_i in range(0, 2):
