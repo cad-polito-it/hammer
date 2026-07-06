@@ -133,7 +133,7 @@ class VCS(HammerSimTool, SynopsysTool):
           return False
 
         # We are switching working directories and we still need to find paths
-        abspath_input_files = list(map(lambda name: os.path.join(os.getcwd(), name), self.input_files))
+        abspath_input_files = [os.path.join(os.getcwd(), name) for name in self.input_files]
         for v in abspath_input_files:
             if not os.path.exists(v):
                 self.logger.error("Cannot find %s" % v)
