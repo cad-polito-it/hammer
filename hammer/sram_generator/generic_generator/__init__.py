@@ -211,7 +211,7 @@ end // initial
 `endif // RANDOMIZE
 `endif // SYNTHESIS
 endmodule
-""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name_v,
+""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
            RAND_WIDTH=math.ceil(params.width / 32), specify=specify, MASK=mask_width))
             elif params.family == "1RW":
                 mask_width = math.ceil(params.width/params.mux)
@@ -294,7 +294,7 @@ end // initial
 `endif // RANDOMIZE
 `endif // SYNTHESIS
 endmodule
-""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name_v,
+""".format(NUMADDR=math.ceil(math.log2(params.depth)), NUMWORDS=params.depth, WORDLENGTH=params.width, NAME=sram_name,
            RAND_WIDTH=math.ceil(params.width / 32), specify=specify, MASK=mask_width))
             elif params.family == "3R2mW":
                 mask_width = math.ceil(params.width/params.mux)
