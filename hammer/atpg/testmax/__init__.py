@@ -6,14 +6,27 @@ from hammer.vlsi import HammerATPGTool, HammerToolStep
 from hammer.common.synopsys import SynopsysTool
 from hammer.logging import HammerVLSILogging
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import hammer.tech
 from hammer.tech import HammerTechnologyUtils
 
 import os
 import re
+from multiprocessing import Process
+import re
+import shutil
 
 class TESTMAX(HammerATPGTool, SynopsysTool):
+
+    _additional_modules: Optional[List[str]] = None
+
+    @property
+    def additional_modules(self) -> Optional[List[str]]:
+        return self._additional_modules
+
+    @additional_modules.setter
+    def additional_modules(self, value: Optional[List[str]]) -> None:
+        self._additional_modules = value
 
     def tool_config_prefix(self) -> str:
         return "atpg.testmax"
@@ -349,6 +362,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         If a faults_file is provided, reads faults from that file.
         Otherwise, adds all faults (excluding fakeram modules).
         """
+        if self._additional_modules != None:
+            for module_name in self._additional_modules:
+                self.append(f"add_nofaults -module \"{module_name}\"")
+
         sram_libs = self.technology.get_extra_libraries_name()
         for sram_name in sram_libs:
             self.append(f"add_nofaults -module \"{sram_name}.*\"")

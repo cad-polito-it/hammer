@@ -1,5 +1,5 @@
 {
-  "name": "Nangate45 Library",
+  "name": "NangateOpenCellLibrary",
   "grid_unit": "0.005",
   "installs": [{
     "id": "nangate45",
@@ -160,6 +160,7 @@
     {"cell_type": "driver",    "name": ["BUF_X1","BUF_X16","BUF_X2","BUF_X32","BUF_X4","BUF_X8"], "input_ports": ["A"], "output_ports": ["Z"]},
     {"cell_type": "ctsbuffer", "name": ["CLKBUF_X1","CLKBUF_X2","CLKBUF_X3"]},
     {"cell_type": "decap",     "name": ["FILLCELL_X32"]},
-    {"cell_type": "endcap",    "name": ["FILLCELL_X1"]}
+    {"cell_type": "endcap",    "name": ["FILLCELL_X1"]},
+    {"cell_type": "ctsinverter", "name": ["INV_X1", "INV_X2", "INV_X4","INV_X8","INV_X16", "INV_X32"], "input_ports": ["A"], "output_ports": ["ZN"]}
   ]
 }
