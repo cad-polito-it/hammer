@@ -1394,9 +1394,9 @@
 "0.792751 fF", "0.804301 fF", "0.813231 fF", "0.74080 fF", "0.792761 fF", "0.804309 fF", "0.813238 fF",
 "0.75409 fF", "1.5855 fF", "1.6086 fF", "1.62646 fF", "1.50861 fF", "2.37825 fF", "2.4129 fF", "2.43969 fF",
 "2.26224 fF", "3.96376 fF", "4.02151 fF", "4.06615 fF", "3.7704 fF"]},
-    {"cell_type": "tiehicell", "name": ["TIEHIx1_ASAP7_75t_SL"], "output ports":  ["H"]},
-    {"cell_type": "tielocell", "name": ["TIELOx1_ASAP7_75t_SL"], "output ports":  ["L"]},
-    {"cell_type": "driver", "name": ["BUFx2_ASAP7_75t_R"], "input_ports": ["A"], "output ports":  ["X"]},
+    {"cell_type": "tiehicell", "name": ["TIEHIx1_ASAP7_75t_SL"], "output_ports":  ["H"]},
+    {"cell_type": "tielocell", "name": ["TIELOx1_ASAP7_75t_SL"], "output_ports":  ["L"]},
+    {"cell_type": "ctsbuffer", "name": ["BUFx2_ASAP7_75t_R", "BUFx4_ASAP7_75t_R", "BUFx16f_ASAP7_75t_R", "BUFx12f_ASAP7_75t_R", "BUFx5_ASAP7_75t_R", "BUFx4f_ASAP7_75t_R", "BUFx12_ASAP7_75t_R", "BUFx10_ASAP7_75t_R", "BUFx24_ASAP7_75t_R", "BUFx6f_ASAP7_75t_R", "BUFx2_ASAP7_75t_R", "BUFx8_ASAP7_75t_R", "BUFx3_ASAP7_75t_R", "BUFx4_ASAP7_75t_L", "BUFx4_ASAP7_75t_SL", "BUFx16f_ASAP7_75t_L", "BUFx16f_ASAP7_75t_SL",  "BUFx12f_ASAP7_75t_L", "BUFx12f_ASAP7_75t_SL",  "BUFx5_ASAP7_75t_L", "BUFx5_ASAP7_75t_SL",  "BUFx4f_ASAP7_75t_L", "BUFx4f_ASAP7_75t_SL", "BUFx12_ASAP7_75t_L", "BUFx12_ASAP7_75t_SL",  "BUFx10_ASAP7_75t_L", "BUFx10_ASAP7_75t_SL",  "BUFx24_ASAP7_75t_L", "BUFx24_ASAP7_75t_SL",  "BUFx6f_ASAP7_75t_L", "BUFx6f_ASAP7_75t_SL",  "BUFx2_ASAP7_75t_L", "BUFx2_ASAP7_75t_SL","BUFx8_ASAP7_75t_L", "BUFx8_ASAP7_75t_SL",  "BUFx3_ASAP7_75t_L", "BUFx3_ASAP7_75t_SL"]},
     {"cell_type": "ctsgate", "name": ["ICGx2_ASAP7_75t_R", "ICGx2p67DC_ASAP7_75t_R" , "ICGx3_ASAP7_75t_R" , "ICGx4_ASAP7_75t_R" , "ICGx8DC_ASAP7_75t_R" , 
                                       "ICGx5_ASAP7_75t_R" , "ICGx4DC_ASAP7_75t_R" , "ICGx1_ASAP7_75t_R" , "ICGx5p33DC_ASAP7_75t_R" , "ICGx6p67DC_ASAP7_75t_R" , 
                                       "ICGx2_ASAP7_75t_L" , "ICGx2_ASAP7_75t_SL" , "ICGx2_ASAP7_75t_SRAM" , "ICGx2p67DC_ASAP7_75t_L" , "ICGx2p67DC_ASAP7_75t_SL" , 
@@ -1405,6 +1405,6 @@
                                       "ICGx5_ASAP7_75t_L" , "ICGx5_ASAP7_75t_SL" , "ICGx5_ASAP7_75t_SRAM" , "ICGx4DC_ASAP7_75t_L" , "ICGx4DC_ASAP7_75t_SL" , 
                                       "ICGx4DC_ASAP7_75t_SRAM" , "ICGx1_ASAP7_75t_L" , "ICGx1_ASAP7_75t_SL" , "ICGx1_ASAP7_75t_SRAM" , "ICGx5p33DC_ASAP7_75t_L" , 
                                       "ICGx5p33DC_ASAP7_75t_SL" , "ICGx5p33DC_ASAP7_75t_SRAM" , "ICGx6p67DC_ASAP7_75t_L" , "ICGx6p67DC_ASAP7_75t_SL" , 
-                                      "ICGx6p67DC_ASAP7_75t_SRAM" ], "input_ports": ["ENA", "SE", "CLK"], "output ports":  ["GCLK"]}
+                                      "ICGx6p67DC_ASAP7_75t_SRAM" ], "input_ports": ["ENA", "SE", "CLK"], "output_ports":  ["GCLK"]}
   ]
 }
