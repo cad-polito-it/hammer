@@ -421,14 +421,19 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
             else:
                 view_type = "existing_dft"
             self.append(f"set_dft_signal -view {view_type} -type {p_type} -port \"{name}\"")
-
+        # Assign default values
+        jtag_tck_timings = "45 95"
+        
         # Define DfT signals
         for clock_port in self.get_setting("synthesis.dft.scan.clock_ports"):
             name = clock_port.get("name")
             active_state = clock_port.get("active_state")
             timings = " ".join(clock_port.get("timings"))
             self.append(f"set_dft_signal -view existing_dft -type ScanClock -port \"{name}\" -timing [list {timings}] -active_state {active_state}")
-
+            if "tck" in name.lower():
+                # Save values for jtag_tck of boundary scan 
+                jtag_tck_timings = timings
+    
         for reset_port in self.get_setting("synthesis.dft.reset_ports"):
             name = reset_port.get("name")
             active_state = reset_port.get("active_state")
@@ -437,7 +442,7 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         # Add JTAG signals
         self.append("set_dft_signal -view existing_dft -type TDI -port \"%s\" -hookup_pin \"iocell_jtag_TDI/pad\"" % self.get_setting("synthesis.dft.jtag.tdi"))
         self.append("set_dft_signal -view existing_dft -type TRST -port \"%s\" -hookup_pin \"iocell_jtag_reset/pad\" -active_state 1" % self.get_setting("synthesis.dft.jtag.reset"))
-        self.append("set_dft_signal -view existing_dft -type TCK -port \"%s\" -hookup_pin \"iocell_jtag_TCK/pad\" -timing [list 45 95] -active_state 1" % self.get_setting("synthesis.dft.jtag.clk"))
+        self.append("set_dft_signal -view existing_dft -type TCK -port \"%s\" -hookup_pin \"iocell_jtag_TCK/pad\" -timing {%s} -active_state 1" % (self.get_setting("synthesis.dft.jtag.clk"),jtag_tck_timings))
         self.append("set_dft_signal -view existing_dft -type TMS -port \"%s\" -hookup_pin \"iocell_jtag_TMS/pad\" -active_state 1" % self.get_setting("synthesis.dft.jtag.tms"))
         self.append("set_dft_signal -view existing_dft -type TDO -port \"%s\" -hookup_pin \"iocell_jtag_TDO/pad\"" % self.get_setting("synthesis.dft.jtag.tdo"))
 
