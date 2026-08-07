@@ -458,7 +458,9 @@ proc get_shadow_wrapper_pins {args} {
 
  set pins {}
  foreach_in_collection cell $cells {
-  foreach_in_collection pin [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"] {
+  set pin_i [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"]
+  if { [llength $pin_i] > 0 } {
+  foreach_in_collection pin $pin_i {
    if {[get_attribute -quiet $pin is_clock_pin] eq true} {continue}
    if {[get_attribute -quiet $pin is_async_pin] eq true} {continue}
    switch -exact $results(-direction) {
@@ -472,6 +474,7 @@ proc get_shadow_wrapper_pins {args} {
    }
    append_to_collection pins $pin
   }
+ }
  }
 
  return [sort_collection -dictionary $pins full_name]
@@ -501,9 +504,8 @@ define_proc_attributes get_shadow_wrapper_pins \\
         self.append("report_dft_configuration")
 
         # Insert DFT and write out design
-        self.append("dft_drc -verbose")
         self.append("create_test_protocol")
-        self.append("preview_dft")
+        self.append("dft_drc -verbose")
         # runs TestMAX Advisor to compute test points
         self.append("run_test_point_analysis")
         self.append("preview_dft -test_points all")
@@ -520,6 +522,7 @@ define_proc_attributes get_shadow_wrapper_pins \\
         self.append("create_test_protocol")
         self.append("insert_dft")
         self.append("dft_drc -verbose")
+        self.append("insert_dft")
         return True
 
     @property
