@@ -115,16 +115,14 @@ class DC(HammerSynthesisTool, SynopsysTool):
         steps = [
             self.init_environment,
             self.elaborate_design,
-            self.apply_constraints]
-        if self.get_setting("synthesis.dft_insertion"):
-            steps.append(self.configure_dft)
-            steps.append(self.insert_dft)
-        steps.extend([self.optimize_design,
-            self.generate_reports])
-        if self.get_setting("synthesis.dft_insertion"):
-            steps.append(self.generate_dft_reports)
-        steps.extend([self.write_outputs,
-            self.write_regs])
+            self.apply_constraints,
+            self.configure_dft,
+            self.insert_dft,
+            self.optimize_design,
+            self.generate_reports,
+            self.generate_dft_reports,
+            self.write_outputs,
+            self.write_regs]
         return self.make_steps_from_methods(steps)
 
     def do_post_steps(self) -> bool:
@@ -307,6 +305,9 @@ write_sdf -version 2.1 -significant_digits 9 \\
         return True
 
     def generate_dft_reports(self) -> bool:
+        # If DfT insertion is not enabled skip it 
+        if not(self.get_setting("synthesis.dft_insertion")):
+            return True
         self.append("""
 write_test_protocol -output {result_dir}/{design_name}_test_protocol.spf
 """.format(result_dir=self.result_dir, design_name=self.top_module))
@@ -357,6 +358,9 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         return command_str
 
     def configure_dft(self) -> bool:
+        # If DfT insertion is not enabled skip it 
+        if not(self.get_setting("synthesis.dft_insertion")):
+            return True
         # Enhanced report for DfT insertion set to true 
         self.append("set_app_var test_disable_enhanced_dft_drc_reporting false")
         
@@ -504,6 +508,9 @@ define_proc_attributes get_shadow_wrapper_pins \\
         return True
     
     def insert_dft(self) -> bool:
+        # If DfT insertion is not enabled skip it 
+        if not(self.get_setting("synthesis.dft_insertion")):
+            return True
         self.append("set_dft_insertion_configuration -map_effort high -synthesis_optimization all -route_scan_enable true -route_scan_clock true -route_scan_serial true -preserve_design_name false -unscan true")
         # Preview all test structures to be inserted
         self.append("report_dft_configuration")
@@ -525,7 +532,6 @@ define_proc_attributes get_shadow_wrapper_pins \\
         # See the preview of DfT
         self.append("preview_dft ")
         self.append("create_test_protocol")
-        self.append("insert_dft")
         self.append("dft_drc -verbose")
         self.append("insert_dft")
         return True
