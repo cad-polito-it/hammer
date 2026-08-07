@@ -487,7 +487,7 @@ define_proc_attributes get_shadow_wrapper_pins \\
 """)
         # Insert Test points for Rams
         if self.get_setting("synthesis.insert_dft.memory_wrapper"):
-            sram_libs = list(set(self.technology.get_extra_libraries_name()
+            sram_libs = list(set(self.technology.get_extra_libraries_name()))
             # Create a space-separated string of patterns for Tcl
             # Example: "*RAM_A* *RAM_B*"
             rams_pattern = [f"\"*{name}*\"" for name in sram_libs]
