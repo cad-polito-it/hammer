@@ -2,7 +2,7 @@
 #
 #  See LICENSE for license details.
 
-from hammer.vlsi import HammerATPGTool, HammerToolStep
+from hammer.vlsi import HammerATPGTool, HammerToolStep, TimeValue
 from hammer.common.mentor import SiemensTool
 from hammer.logging import HammerVLSILogging
 
@@ -56,9 +56,7 @@ class TESSENT(HammerATPGTool, SiemensTool):
         elif self.fault_model == "tdf":
             return "transition"
         elif self.fault_model == "sdf":
-            # TODO: Small-delay fault (SDF) support is not implemented yet for Tessent.
-            self.logger.warning(f"Fault model {self.fault_model} not yet supported for Tessent ATPG. Defaulting to Stuck-at fault model")
-            return "stuck"
+            return "transition"
         else:
             self.logger.warning(f"Fault model {self.fault_model} not yet supported. Defaulting to Stuck-at fault model")
             return "stuck" # in case of different values not supported at the moment, it returns the default value
@@ -133,16 +131,17 @@ class TESSENT(HammerATPGTool, SiemensTool):
         for v in verilog:
             self.append(f"read_verilog {v}")
 
-        # 3) Auto black-box unsupported modules
+            
+        # 3) Set the current design
+        self.append(f"set_current_design {self.top_module}")
+
+        # 4) Auto black-box unsupported modules
         add_black_boxes_args = self.get_setting("atpg.tessent.add_black_boxes_args", nullvalue=[])  # type: List[str]
         add_black_boxes_args_str = " ".join([a for a in add_black_boxes_args if a])
         if add_black_boxes_args_str:
             self.append(f"add_black_boxes {add_black_boxes_args_str}")
         else:
             self.append("add_black_boxes -auto")
-
-        # 4) Set the current design
-        self.append(f"set_current_design {self.top_module}")
 
         return True
 
@@ -158,7 +157,7 @@ class TESSENT(HammerATPGTool, SiemensTool):
             self.logger.error("No SPF file specified for ATPG; cannot locate the ATPG dofile")
             return False
 
-        dofile_path = os.path.join(os.path.dirname(spf_path), "dofile.do")
+        dofile_path = spf_path + ".do"
         self.append(f"source {dofile_path}")
 
         self.append("set_system_mode analysis")
@@ -205,8 +204,28 @@ class TESSENT(HammerATPGTool, SiemensTool):
         # Prepare for ATPG: set the fault type and create the fault list
         self.append(f'set_fault_type {self.atpg_fault_type}')
 
+        if self.fault_model == "sdf":
+            # Optional extra args to "read_sdf".
+            read_sdf_args = self.get_setting("atpg.tessent.read_sdf_args", nullvalue=[])  # type: List[str]
+            read_sdf_args_str = " ".join([a for a in read_sdf_args if a])
+            if read_sdf_args_str:
+                self.append(f'read_sdf {self.sdf_file} {read_sdf_args_str}')
+            else:
+                self.append(f'read_sdf {self.sdf_file}')
+
+            # Optional extra args to "set_atpg_timing on".
+            set_atpg_timing_args = self.get_setting("atpg.tessent.set_atpg_timing_args", nullvalue=[])  # type: List[str]
+            set_atpg_timing_args_str = " ".join([a for a in set_atpg_timing_args if a])
+            if set_atpg_timing_args_str:
+                self.append(f'set_atpg_timing on {set_atpg_timing_args_str}')
+            else:
+                self.append('set_atpg_timing on')
+
+            self._define_clock_waveforms()
+
         self._load_faults()
 
+        self.append("set_system_mode atpg")
         # Run automatic test pattern generation
         if self.create_patterns:
             create_patterns_args = self.get_setting("atpg.tessent.create_patterns_args", nullvalue=[])  # type: List[str]
@@ -353,6 +372,33 @@ class TESSENT(HammerATPGTool, SiemensTool):
             os.environ["PATH"])
         return env
 
+    def _write_atpg_dofile(self):
+        spf_path = os.path.abspath(self.spf_file) if self.spf_file else ""
+        if not spf_path:
+            self.logger.error("No SPF file specified for ATPG; cannot locate the ATPG dofile")
+            return False
+        
+        self.generate_dofile_from_spf(spf_path)
+
+    def _define_clock_waveforms(self) -> None:
+        """Emit 'set_atpg_timing -clock_waveform' for every known clock, plus a DEFAULT
+        fallback for every other clock in the design, so timing-aware ATPG (e.g. -retarget)
+        has a waveform to work with. """
+        periods = {c.name: c.period for c in self.get_clock_ports() if c.period is not None}
+        if not periods:
+            return
+
+        self.append('# Clock waveforms for timing-aware ATPG')
+        for name, period in periods.items():
+            period_ns = period.value_in_units("ns")
+            half_ns = period_ns / 2
+            self.append(f"set_atpg_timing -clock_waveform {name} {period_ns} {half_ns} {half_ns}")
+
+        default_period_ns = TimeValue(self.get_setting("atpg.tessent.default_clock_period")).value_in_units("ns")
+        self.append(f"set_atpg_timing -clock_waveform DEFAULT {default_period_ns} {default_period_ns / 2} {default_period_ns / 2}")
+
+        self.append("set_clock_restriction on")
+
     def run_tessent(self) -> bool:
         HammerVLSILogging.enable_colour = False
         HammerVLSILogging.enable_tag = False
@@ -370,6 +416,8 @@ class TESSENT(HammerATPGTool, SiemensTool):
         with open(tessent_dofile, 'w') as _f:
             _f.write('\n'.join(dofile_lines))
             _f.write('\nexit')
+        
+        self._write_atpg_dofile()
         args = [tessent_bin, "-shell", "-dofile", tessent_dofile]
         self.run_executable(args, self.run_dir)
         HammerVLSILogging.enable_colour = True

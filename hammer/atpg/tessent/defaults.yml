@@ -22,9 +22,18 @@ atpg.tessent:
   simulate_patterns_args: [] # Args for the simulate_patterns command
   # type: List[str]
 
-  # TODO: Location of the binary.
+  read_sdf_args: [] # Args for the read_sdf command
+  # type: List[str]
+
+  set_atpg_timing_args: [] # Args for the set_atpg_timing command
+  # type: List[str]
+
+  default_clock_period: "100 ns" # Clock period to use for the "DEFAULT" clock waveform definition for Timing-Aware ATPG
+  # type: str
+
+  # Location of the binary.
   tessent_bin: "${mentor.mentor_home}/${atpg.tessent.version}/bin/tessent"
   tessent_bin_meta: lazysubst
 
-  # TODO: Tessent version to use, e.g. "2022.3"
+  # Tessent version to use, e.g. "2022.3"
   version: "2022.3"

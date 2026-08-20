@@ -1,6 +1,6 @@
 import os
 from functools import reduce
-from typing import Dict, List
+from typing import Optional, Dict, List
 
 from hammer.utils import add_dicts
 from hammer.vlsi import TCLTool, HammerTool
@@ -12,9 +12,15 @@ class SiemensTool(TCLTool, HammerTool):
 
     @property
     def env_vars(self) -> Dict[str, str]:
-        # TODO
-
-        return null
+        """
+        Get the list of environment variables required for this tool.
+        Note to subclasses: remember to include variables from super().env_vars!
+        """
+        result = dict(super().env_vars)
+        result.update({
+            "MGLS_LICENSE_FILE": self.get_setting("mentor.MGLS_LICENSE_FILE"),
+        })
+        return result
 
     def version_number(self, version: str) -> int:
         """
@@ -45,3 +51,21 @@ class SiemensTool(TCLTool, HammerTool):
     @property
     def verilog(self) -> List[str]:
         return [v for v in list(self.input_files) if v.endswith(".v") or v.endswith(".sv")]
+
+    def generate_dofile_from_spf(self, spf_path: str, options: Optional[List[str]] = []) -> bool:
+        """
+        Generate a Verilog testbench from a STIL file using stil2verilog.
+
+        :param stil_path: Path to the input STIL file.
+        :param testbench_name: Name of the output Verilog testbench file.
+        :param options: Optional list of additional command-line options for stil2verilog.
+                        If None or empty, no additional options are passed.
+        :return: True if the testbench was generated successfully.
+        """
+        args_testbench = ["stil2tessent", "-stil", spf_path]
+        if options:
+            args_testbench.extend(options)
+
+        self.run_executable(args_testbench, self.run_dir)
+
+        return True
