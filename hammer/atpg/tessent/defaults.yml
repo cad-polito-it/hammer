@@ -22,6 +22,9 @@ atpg.tessent:
   simulate_patterns_args: [] # Args for the simulate_patterns command
   # type: List[str]
 
+  write_faults_format: "basic" # Format for the write_faults command
+  # type: str
+
   read_sdf_args: [] # Args for the read_sdf command
   # type: List[str]
 

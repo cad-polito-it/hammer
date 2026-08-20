@@ -362,6 +362,19 @@ class TESSENT(HammerATPGTool, SiemensTool):
         report_statistics_path = os.path.join(base_dir, f'{self.top_module}{suffix}_statistics.rpt')
         self.append(f"report_statistics -detailed_analysis > {report_statistics_path}")
 
+        report_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults.fau')
+        self.append(f"write_faults {report_faults_path} -all -format {self.get_setting('atpg.tessent.write_faults_format')} -replace")
+
+        report_faults_zoix_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_zoix.fau')
+        self.append(f"write_faults {report_faults_zoix_path} -all -verilog -no_subclass -format basic -replace")
+
+        if self.fault_model == "sdf":
+            report_faults_delay_data_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_delay_data.fau')
+            self.append(f"write_faults {report_faults_delay_data_path} -all -delay_data -format {self.get_setting('atpg.tessent.write_faults_format')} -replace")
+            
+            report_atpg_timing_path = os.path.join(base_dir, f'{self.top_module}{suffix}_atpg_timing.rpt')
+            self.append(f"report_atpg_timing > {report_atpg_timing_path}")
+
         return True
 
     @property
