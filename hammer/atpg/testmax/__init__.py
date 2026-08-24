@@ -192,7 +192,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             # are targeted by the normal transition fault ATPG algorithm rather than by the
             # slack-based algorithm.
             self.clocks = self.get_setting("vlsi.inputs.clocks")
-            # Extract the clock value, we consider all SDF
+            # Extract the clock value, for future use
             match = re.search(r"(\d*\.?\d+)\s*([a-zA-Z]+)", self.clocks[0].get('period'))
             if match:
                 clock_value = match.group(1) 
@@ -201,7 +201,6 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
                 self.logger.error("No clock value from clock specification")
                 return False
 
-            self.append(f"set_delay -max_tmgn {clock_value}")
             # Sets a level between the longest path and the path on which the fault is detected.
             # Full detection is still credited, and the fault is dropped from further 
             # The default is zero (full credit is given only when detection is on the minimum slack path).
@@ -275,6 +274,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         if self.fault_model == "sdf" :
             self.append(f"set_delay -slackdata_for_atpg")
 
+        if self.fault_model == "sdf" or self.fault_model == "tdf":
+            self.append("set_delay -pi_changes")
+            self.append("set_delay -nopo_measures")
+        
         # if self.pattern_format is not None:
         #     self.append(f'# set_pattern_format {self.pattern_format}')
 
