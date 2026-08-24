@@ -416,6 +416,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         else:
             # This is primetime and vc zoix dependent
             if self.fault_model == "sdf":
+                self.time_margin = self.get_setting("atpg.outputs.sdf_time_margin", None)
                 self.slack_file = self.get_setting('timing.outputs.output_slack_file', None)         
                 if self.slack_file is None:
                     self.logger.error("Slack file not defined")
@@ -796,8 +797,16 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                             continue
                         # TODO (franout): temporary fix for supporting TP fault status NYI in VC Z0iX
                         if self.fault_model == "sdf":
-                            line = line.replace("TP","DS") # TODO (franout): very optimistic
-                        columns = line.split()
+                            # TP is transition partially detcted
+                            # it can continue to be simulated with the intention of getting a better test for the fault.
+                            line = line.replace("TP","NP") # TODO (franout): very optimistic, let's see if fsim can detect it better
+                            # Select based on time margin 
+                            columns = line.split()
+                            # Check against the calculated time margin from the atpg in order to be considered a small delay fault
+                            if float(columns[3]) >= self.time_margin :
+                                continue
+                        else:
+                            columns = line.split()
 
                         if len(columns) >=3:
                             # Add dut path and replace VC-Z01X separator with TestMax separator
@@ -833,6 +842,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                         return False
                 elif self.fault_model == "sdf":
                     # Merge with slack based file
+                    self.logger.info("Remember to select NP as fault status to re-fault simulate!")
                     if not(self._fuse_slack_with_sff(self.slack_file, sff_report_path)):
                         return False
                 HammerVLSILogging.enable_colour = True
