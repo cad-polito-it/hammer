@@ -263,6 +263,7 @@ def main(args) -> int:
                                 InterfaceVar("executed_generate_patterns", "bool", "Executed pattern generation"),
                                 InterfaceVar("output_patterns_source_kind", "str", "ATPG pattern kind"),
                                 InterfaceVar("output_input_faults_file", "Optional[str]", "Input fault list for incremental ATPG run"),
+                                InterfaceVar("sdf_time_margin", "Optional[float]", "Output value of time margin for small delay faults calculated by ATPG engine"),
                             ]
                             )
 
