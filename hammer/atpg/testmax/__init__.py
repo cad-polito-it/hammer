@@ -394,6 +394,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
                 self.append(f'# adding all faults for {self.top_module}')
                 self.append("add_faults -all")
 
+            # In case of delay-based fault model, we add clock and scan enable faults by default
+            if self.fault_model == "sdf" or self.fault_model == "tdf":
+                self.append("add_faults -clocks -scan_enable")
+            
     def generate_generation_reports(self) -> bool:
         """Generate reports after pattern generation (no fault-sim yet).
 
