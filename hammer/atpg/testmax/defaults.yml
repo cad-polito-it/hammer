@@ -28,6 +28,8 @@ atpg.testmax:
   add_faults_args: [] # Args for the add_faults command
   # type: List[str]
 
+  time_margin: '50%' # Time margin from the clock value for which a fault is considered a small delay fault
+  # type: str
   # Location of the binary.
   testmax_bin: "${synopsys.synopsys_home}/${atpg.testmax.version}/bin/tmax2"
   testmax_bin_meta: lazysubst
