@@ -507,6 +507,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
                 match = re.search(pattern, line, re.IGNORECASE)
                 if match:
                     value = float(match.group(1))
+                    break
         self.output_time_margin = value
 
     @property
