@@ -84,7 +84,8 @@ class TESSENT(HammerATPGTool, SiemensTool):
             self.run_atpg,
             self.generate_generation_reports,
             self.run_fault_sim,
-            self.generate_fault_sim_reports
+            self.generate_fault_sim_reports,
+            self.generate_testbench
             ])
 
     def do_post_steps(self) -> bool:
@@ -243,8 +244,7 @@ class TESSENT(HammerATPGTool, SiemensTool):
             create_patterns_args = self.get_setting("atpg.tessent.create_patterns_args", nullvalue=[])  # type: List[str]
             create_patterns_args_str = " ".join([a for a in create_patterns_args if a])
 
-            self.generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
-            self.append(f'# create_patterns -> generate patterns to {self.generated_pattern_path}')
+            self.generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_patterns_testbench.v')
 
             if create_patterns_args_str:
                 self.append(f'create_patterns {create_patterns_args_str}')
@@ -431,6 +431,19 @@ class TESSENT(HammerATPGTool, SiemensTool):
         self.append(f"set_atpg_timing -clock_waveform DEFAULT {default_period_ns} {default_period_ns / 2} {default_period_ns / 2}")
 
         self.append("set_clock_restriction on")
+
+    def generate_testbench(self) -> bool:
+
+        # Generate testbench based on the patterns source
+        if self.did_generate_patterns:
+            # Case 1: We generated patterns in this run -> testbench for generated patterns
+            self.append(f'write_patterns {self.generated_testbench_path} -verilog -replace')
+        elif self.did_fault_sim and self.patterns_file:
+            # Case 2: Fault simulation only with user-provided patterns -> testbench for user patterns
+            user_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_user_testbench.v')
+            self.append(f'write_patterns {user_testbench_path} -verilog -replace')
+
+        return True
 
     def run_tessent(self) -> bool:
         HammerVLSILogging.enable_colour = False
