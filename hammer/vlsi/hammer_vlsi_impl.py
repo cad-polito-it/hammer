@@ -2494,6 +2494,26 @@ class HammerATPGTool(HammerTool):
             raise TypeError("output_input_faults_file must be a Optional[str]")
         self.attr_setter("_output_input_faults_file", value)
 
+
+    @property
+    def sdf_time_margin(self) -> Optional[float]:
+        """
+        Get the Output value of time margin for small delay faults calculated by ATPG engine.
+
+        :return: The Output value of time margin for small delay faults calculated by ATPG engine.
+        """
+        try:
+            return self.attr_getter("_sdf_time_margin", None)
+        except AttributeError:
+            return None
+
+    @sdf_time_margin.setter
+    def sdf_time_margin(self, value: Optional[float]) -> None:
+        """Set the Output value of time margin for small delay faults calculated by ATPG engine."""
+        if not (isinstance(value, float) or (value is None)):
+            raise TypeError("sdf_time_margin must be a Optional[float]")
+        self.attr_setter("_sdf_time_margin", value)
+
     ### END Generated interface HammerATPGTool ###
 
 class HammerPowerTool(HammerTool):

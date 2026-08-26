@@ -518,6 +518,7 @@ define_proc_attributes get_shadow_wrapper_pins \\
         # Insert DFT and write out design
         self.append("create_test_protocol")
         self.append("dft_drc -verbose")
+        self.append("preview_dft")
         # runs TestMAX Advisor to compute test points
         self.append("run_test_point_analysis")
         self.append("preview_dft -test_points all")
