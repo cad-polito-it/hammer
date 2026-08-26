@@ -228,6 +228,13 @@ class TESSENT(HammerATPGTool, SiemensTool):
         self.append("set_system_mode atpg")
         # Run automatic test pattern generation
         if self.create_patterns:
+            target_coverage = self.get_setting("atpg.target_coverage", nullvalue=100.00)
+            self.append(f'set_atpg_limits -test_coverage {target_coverage}')
+
+            max_test_patterns = self.get_setting("atpg.max_test_patterns", nullvalue=0)
+            if max_test_patterns > 0:
+                self.append(f'set_atpg_limits -pattern_count {max_test_patterns}')
+            
             create_patterns_args = self.get_setting("atpg.tessent.create_patterns_args", nullvalue=[])  # type: List[str]
             create_patterns_args_str = " ".join([a for a in create_patterns_args if a])
 
