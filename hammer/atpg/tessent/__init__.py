@@ -244,7 +244,9 @@ class TESSENT(HammerATPGTool, SiemensTool):
             create_patterns_args = self.get_setting("atpg.tessent.create_patterns_args", nullvalue=[])  # type: List[str]
             create_patterns_args_str = " ".join([a for a in create_patterns_args if a])
 
+            self.generated_patterns_path = os.path.join(self.result_dir, f'{self.top_module}_patterns.stil')
             self.generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_patterns_testbench.v')
+            self.append(f'# create_patterns -> generate patterns to {self.generated_patterns_path}')
 
             if create_patterns_args_str:
                 self.append(f'create_patterns {create_patterns_args_str}')
@@ -255,11 +257,10 @@ class TESSENT(HammerATPGTool, SiemensTool):
             write_patterns_args = self.get_setting("atpg.tessent.write_patterns_args", nullvalue=[])  # type: List[str]
             write_patterns_args_str = " ".join([a for a in write_patterns_args if a])
             if write_patterns_args_str:
-                self.append(f'write_patterns {self.generated_pattern_path} {write_patterns_args_str} -replace')
+                self.append(f'write_patterns {self.generated_patterns_path} -stil {write_patterns_args_str} -replace')
             else:
-                self.append(f'write_patterns {self.generated_pattern_path} -replace')
-
-            self.patterns = self.generated_pattern_path
+                self.append(f'write_patterns {self.generated_patterns_path} -stil -replace')
+            self.patterns = self.generated_patterns_path
 
             self.did_generate_patterns = True
             self.patterns_source_kind = "generated"
@@ -275,7 +276,6 @@ class TESSENT(HammerATPGTool, SiemensTool):
 
         log = HammerVLSILogging.context("atpg.fault_sim")
 
-        generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
         user_patterns_file = self.patterns_file
 
         patterns_source = ""
@@ -287,7 +287,7 @@ class TESSENT(HammerATPGTool, SiemensTool):
             log.debug(f"Fault simulation on user pattern file: {patterns_source}")
         elif self.did_generate_patterns == True:
             # Mode 1: fault simulation of freshly generated patterns.
-            patterns_source = generated_pattern_path
+            patterns_source = self.generated_patterns_path
             self.patterns_source_kind = "generated"
             log.debug(f"Fault simulation on generated pattern set: {patterns_source}")
 
