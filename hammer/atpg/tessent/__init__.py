@@ -243,9 +243,9 @@ class TESSENT(HammerATPGTool, SiemensTool):
             write_patterns_args = self.get_setting("atpg.tessent.write_patterns_args", nullvalue=[])  # type: List[str]
             write_patterns_args_str = " ".join([a for a in write_patterns_args if a])
             if write_patterns_args_str:
-                self.append(f'write_patterns {self.generated_pattern_path} {write_patterns_args_str}')
+                self.append(f'write_patterns {self.generated_pattern_path} {write_patterns_args_str} -replace')
             else:
-                self.append(f'write_patterns {self.generated_pattern_path}')
+                self.append(f'write_patterns {self.generated_pattern_path} -replace')
 
             self.patterns = self.generated_pattern_path
 
