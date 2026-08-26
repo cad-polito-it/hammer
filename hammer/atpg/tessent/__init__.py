@@ -371,18 +371,26 @@ class TESSENT(HammerATPGTool, SiemensTool):
 
         os.makedirs(base_dir, exist_ok=True)
 
+        write_faults_format = self.get_setting('atpg.tessent.write_faults_format')
+
         report_statistics_path = os.path.join(base_dir, f'{self.top_module}{suffix}_statistics.rpt')
         self.append(f"report_statistics -detailed_analysis > {report_statistics_path}")
 
         report_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults.fau')
-        self.append(f"write_faults {report_faults_path} -all -format {self.get_setting('atpg.tessent.write_faults_format')} -replace")
+        self.append(f"write_faults {report_faults_path} -all -format {write_faults_format} -NOEQ -replace")
 
         report_faults_zoix_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_zoix.fau')
         self.append(f"write_faults {report_faults_zoix_path} -all -verilog -no_subclass -format basic -replace")
 
+        report_au_faults_path = os.path.join(base_dir, f'{self.top_module}{suffix}_au_faults.fau')
+        self.append(f"write_faults {report_au_faults_path} -class AU -format {write_faults_format} -NOEQ -replace")
+
+        report_faults_hierarchical_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_hierarchical.fau')
+        self.append(f"write_faults {report_faults_hierarchical_path} -hierarchy 1000 -format {write_faults_format} -NOEQ -replace")
+
         if self.fault_model == "sdf":
             report_faults_delay_data_path = os.path.join(base_dir, f'{self.top_module}{suffix}_faults_delay_data.fau')
-            self.append(f"write_faults {report_faults_delay_data_path} -all -delay_data -format {self.get_setting('atpg.tessent.write_faults_format')} -replace")
+            self.append(f"write_faults {report_faults_delay_data_path} -all -delay_data -format {write_faults_format} -NOEQ -replace")
             
             report_atpg_timing_path = os.path.join(base_dir, f'{self.top_module}{suffix}_atpg_timing.rpt')
             self.append(f"report_atpg_timing > {report_atpg_timing_path}")
