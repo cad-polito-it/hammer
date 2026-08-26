@@ -142,6 +142,11 @@ class TESSENT(HammerATPGTool, SiemensTool):
             self.append(f"add_black_boxes {add_black_boxes_args_str}")
         else:
             self.append("add_black_boxes -auto")
+        
+        # Exclude black-boxed SRAM/extra-library modules from faulting (they have no fault model). 
+        # add_nofaults is setup-mode only, so it must run here
+        for sram_name in self.technology.get_extra_libraries_name():
+            self.append(f'add_nofaults {sram_name} -Module')
 
         return True
 
