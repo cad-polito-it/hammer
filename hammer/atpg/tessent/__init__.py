@@ -132,7 +132,13 @@ class TESSENT(HammerATPGTool, SiemensTool):
         for v in verilog:
             self.append(f"read_verilog {v}")
 
-            
+        atpg_libraries = self.technology.read_libs([
+            hammer.tech.filters.atpg_library_filter
+        ], HammerTechnologyUtils.to_plain_item)
+
+        for lib in atpg_libraries:
+            self.append(f"read_cell_library {lib}")
+
         # 3) Set the current design
         self.append(f"set_current_design {self.top_module}")
 
