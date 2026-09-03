@@ -115,16 +115,14 @@ class DC(HammerSynthesisTool, SynopsysTool):
         steps = [
             self.init_environment,
             self.elaborate_design,
-            self.apply_constraints]
-        if self.get_setting("synthesis.dft_insertion"):
-            steps.append(self.configure_dft)
-            steps.append(self.insert_dft)
-        steps.extend([self.optimize_design,
-            self.generate_reports])
-        if self.get_setting("synthesis.dft_insertion"):
-            steps.append(self.generate_dft_reports)
-        steps.extend([self.write_outputs,
-            self.write_regs])
+            self.apply_constraints,
+            self.configure_dft,
+            self.insert_dft,
+            self.optimize_design,
+            self.generate_reports,
+            self.generate_dft_reports,
+            self.write_outputs,
+            self.write_regs]
         return self.make_steps_from_methods(steps)
 
     def do_post_steps(self) -> bool:
@@ -209,12 +207,13 @@ class DC(HammerSynthesisTool, SynopsysTool):
         self.append("link")
 
         # Set Rams as black boxes
-        sram_libs = self.technology.get_extra_libraries_name()
+        sram_libs = list(set(self.technology.get_extra_libraries_name()))
         for sram_name in sram_libs:
             self.append(f"foreach_in_collection ram [get_references -hierarchical \"*{sram_name}*\"] {{")
             #self.append("set_attribute $ram is_black_box true")
             self.append("set_attribute $ram is_memory_cell true")
             self.append("set_attribute $ram is_physical_black_box true" )
+            self.append("set_attribute $ram is_logical_black_box true" )
             self.append("set_dont_touch $ram")
             self.append("}")
 
@@ -306,6 +305,9 @@ write_sdf -version 2.1 -significant_digits 9 \\
         return True
 
     def generate_dft_reports(self) -> bool:
+        # If DfT insertion is not enabled skip it 
+        if not(self.get_setting("synthesis.dft_insertion")):
+            return True
         self.append("""
 write_test_protocol -output {result_dir}/{design_name}_test_protocol.spf
 """.format(result_dir=self.result_dir, design_name=self.top_module))
@@ -356,6 +358,9 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         return command_str
 
     def configure_dft(self) -> bool:
+        # If DfT insertion is not enabled skip it 
+        if not(self.get_setting("synthesis.dft_insertion")):
+            return True
         # Enhanced report for DfT insertion set to true 
         self.append("set_app_var test_disable_enhanced_dft_drc_reporting false")
         
@@ -420,14 +425,19 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
             else:
                 view_type = "existing_dft"
             self.append(f"set_dft_signal -view {view_type} -type {p_type} -port \"{name}\"")
-
+        # Assign default values
+        jtag_tck_timings = "45 95"
+        
         # Define DfT signals
         for clock_port in self.get_setting("synthesis.dft.scan.clock_ports"):
             name = clock_port.get("name")
             active_state = clock_port.get("active_state")
             timings = " ".join(clock_port.get("timings"))
             self.append(f"set_dft_signal -view existing_dft -type ScanClock -port \"{name}\" -timing [list {timings}] -active_state {active_state}")
-
+            if "tck" in name.lower():
+                # Save values for jtag_tck of boundary scan 
+                jtag_tck_timings = timings
+    
         for reset_port in self.get_setting("synthesis.dft.reset_ports"):
             name = reset_port.get("name")
             active_state = reset_port.get("active_state")
@@ -436,7 +446,7 @@ set_test_point_element -type control_01 [get_shadow_wrapper_pins $cell -directio
         # Add JTAG signals
         self.append("set_dft_signal -view existing_dft -type TDI -port \"%s\" -hookup_pin \"iocell_jtag_TDI/pad\"" % self.get_setting("synthesis.dft.jtag.tdi"))
         self.append("set_dft_signal -view existing_dft -type TRST -port \"%s\" -hookup_pin \"iocell_jtag_reset/pad\" -active_state 1" % self.get_setting("synthesis.dft.jtag.reset"))
-        self.append("set_dft_signal -view existing_dft -type TCK -port \"%s\" -hookup_pin \"iocell_jtag_TCK/pad\" -timing [list 45 95] -active_state 1" % self.get_setting("synthesis.dft.jtag.clk"))
+        self.append("set_dft_signal -view existing_dft -type TCK -port \"%s\" -hookup_pin \"iocell_jtag_TCK/pad\" -timing {%s} -active_state 1" % (self.get_setting("synthesis.dft.jtag.clk"),jtag_tck_timings))
         self.append("set_dft_signal -view existing_dft -type TMS -port \"%s\" -hookup_pin \"iocell_jtag_TMS/pad\" -active_state 1" % self.get_setting("synthesis.dft.jtag.tms"))
         self.append("set_dft_signal -view existing_dft -type TDO -port \"%s\" -hookup_pin \"iocell_jtag_TDO/pad\"" % self.get_setting("synthesis.dft.jtag.tdo"))
 
@@ -457,7 +467,9 @@ proc get_shadow_wrapper_pins {args} {
 
  set pins {}
  foreach_in_collection cell $cells {
-  foreach_in_collection pin [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"] {
+  set pin_i [get_pins -quiet -of $cell -filter "pin_direction == $results(-direction)"]
+  if { [llength $pin_i] > 0 } {
+  foreach_in_collection pin $pin_i {
    if {[get_attribute -quiet $pin is_clock_pin] eq true} {continue}
    if {[get_attribute -quiet $pin is_async_pin] eq true} {continue}
    switch -exact $results(-direction) {
@@ -471,6 +483,7 @@ proc get_shadow_wrapper_pins {args} {
    }
    append_to_collection pins $pin
   }
+ }
  }
 
  return [sort_collection -dictionary $pins full_name]
@@ -486,7 +499,7 @@ define_proc_attributes get_shadow_wrapper_pins \\
 """)
         # Insert Test points for Rams
         if self.get_setting("synthesis.insert_dft.memory_wrapper"):
-            sram_libs = self.technology.get_extra_libraries_name()
+            sram_libs = list(set(self.technology.get_extra_libraries_name()))
             # Create a space-separated string of patterns for Tcl
             # Example: "*RAM_A* *RAM_B*"
             rams_pattern = [f"\"*{name}*\"" for name in sram_libs]
@@ -495,13 +508,16 @@ define_proc_attributes get_shadow_wrapper_pins \\
         return True
     
     def insert_dft(self) -> bool:
+        # If DfT insertion is not enabled skip it 
+        if not(self.get_setting("synthesis.dft_insertion")):
+            return True
         self.append("set_dft_insertion_configuration -map_effort high -synthesis_optimization all -route_scan_enable true -route_scan_clock true -route_scan_serial true -preserve_design_name false -unscan true")
         # Preview all test structures to be inserted
         self.append("report_dft_configuration")
 
         # Insert DFT and write out design
-        self.append("dft_drc -verbose")
         self.append("create_test_protocol")
+        self.append("dft_drc -verbose")
         self.append("preview_dft")
         # runs TestMAX Advisor to compute test points
         self.append("run_test_point_analysis")
@@ -517,8 +533,8 @@ define_proc_attributes get_shadow_wrapper_pins \\
         # See the preview of DfT
         self.append("preview_dft ")
         self.append("create_test_protocol")
-        self.append("insert_dft")
         self.append("dft_drc -verbose")
+        self.append("insert_dft")
         return True
 
     @property

@@ -63,6 +63,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         outputs["atpg.outputs.output_executed_generate_patterns"] = self.executed_generate_patterns
         outputs["atpg.outputs.output_patterns_source_kind"] = self.output_patterns_source_kind
         outputs["atpg.outputs.output_input_faults_file"] = self.output_input_faults_file
+        if self.fault_model == "sdf": 
+            outputs["atpg.outputs.sdf_time_margin"] = self.output_time_margin
+        else:
+            outputs["atpg.outputs.sdf_time_margin"] = 0.0
         return outputs
     
     @property
@@ -188,7 +192,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             # are targeted by the normal transition fault ATPG algorithm rather than by the
             # slack-based algorithm.
             self.clocks = self.get_setting("vlsi.inputs.clocks")
-            # Extract the clock value, we consider all SDF
+            # Extract the clock value, for future use
             match = re.search(r"(\d*\.?\d+)\s*([a-zA-Z]+)", self.clocks[0].get('period'))
             if match:
                 clock_value = match.group(1) 
@@ -197,7 +201,6 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
                 self.logger.error("No clock value from clock specification")
                 return False
 
-            self.append(f"set_delay -max_tmgn {clock_value}")
             # Sets a level between the longest path and the path on which the fault is detected.
             # Full detection is still credited, and the fault is dropped from further 
             # The default is zero (full credit is given only when detection is on the minimum slack path).
@@ -271,6 +274,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         if self.fault_model == "sdf" :
             self.append(f"set_delay -slackdata_for_atpg")
 
+        if self.fault_model == "sdf" or self.fault_model == "tdf":
+            self.append("set_delay -pi_changes")
+            self.append("set_delay -nopo_measures")
+        
         # if self.pattern_format is not None:
         #     self.append(f'# set_pattern_format {self.pattern_format}')
 
@@ -294,7 +301,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             # Optional extra args to "run_atpg" from the Hammer config.
             run_atpg_args = self.get_setting("atpg.testmax.run_atpg_args", nullvalue=[])  # type: List[str]
             run_atpg_args_str = " ".join([a for a in run_atpg_args if a])
-
+            # Setting the time margin for slack-based algorithm
+            if self.fault_model == "sdf":
+                self.time_margin = self.get_setting("atpg.testmax.time_margin", nullvalue='50%')  # type: str
+                self.append(f"set_delay -max_tmgn {self.time_margin}")
             if run_atpg_args_str:
                 self.append(f'run_atpg {run_atpg_args_str}')
             else:
@@ -384,6 +394,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
                 self.append(f'# adding all faults for {self.top_module}')
                 self.append("add_faults -all")
 
+            # In case of delay-based fault model, we add clock and scan enable faults by default
+            if self.fault_model == "sdf" or self.fault_model == "tdf":
+                self.append("add_faults -clocks -scan_enable")
+            
     def generate_generation_reports(self) -> bool:
         """Generate reports after pattern generation (no fault-sim yet).
 
@@ -477,9 +491,24 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             report_faults_slack_effectiveness = os.path.join(base_dir, f'{self.top_module}{suffix}_slack_effectiveness.rpt')
             self.append(f"report_faults -slack EFfectiveness > {report_faults_slack_effectiveness}")
 
-            report_faults_slack_coverage = os.path.join(base_dir, f'{self.top_module}{suffix}_slack_coverage.rpt')
-            self.append(f"report_faults -slack COVerage > {report_faults_slack_coverage}")
+            # Let's share the report for future use 
+            self.report_faults_slack_coverage = os.path.join(base_dir, f'{self.top_module}{suffix}_slack_coverage.rpt')
+            self.append(f"report_faults -slack COVerage > {self.report_faults_slack_coverage}")
         return True
+
+    def _extract_time_margin(self) -> None:
+        """Extracts the floating-point value from the 'max tmgn' line in the slack coverage report file."""
+        pattern = (
+            r"The max tmgn for small delay defect faults has been set to\s+([\d.]+)"
+        )
+        value = 0.0 # Default value
+        with open(self.report_faults_slack_coverage, "r") as file:
+            for line in file:
+                match = re.search(pattern, line, re.IGNORECASE)
+                if match:
+                    value = float(match.group(1))
+                    break
+        self.output_time_margin = value
 
     @property
     def env_vars(self) -> Dict[str, str]:
@@ -524,6 +553,8 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         args = [testmax_bin, "-shell", "-64bit", testmax_tcl]
         lines = self.run_executable(args, self.run_dir)
         self.generate_testbench()
+        if self.fault_model == "sdf": 
+            self._extract_time_margin()
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
         return True
