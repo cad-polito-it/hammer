@@ -584,6 +584,8 @@ def asap7_generate_tessent_atpg_lib(ht: HammerTool) -> bool:
 
         # This assumes libcomp bin lives alongside tessent_bin, same as Tessent's own binaries.
         libcomp_bin = os.path.join(os.path.dirname(ht.get_setting("atpg.tessent.tessent_bin")), "libcomp")
+        if not shutil.which(libcomp_bin):
+            raise Exception(f"{libcomp_bin} does not exist or is not executable")
 
         args = [
             libcomp_bin,

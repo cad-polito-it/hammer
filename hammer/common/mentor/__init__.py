@@ -1,4 +1,5 @@
 import os
+import shutil
 from functools import reduce
 from typing import Optional, Dict, List
 
@@ -61,7 +62,10 @@ class SiemensTool(TCLTool, HammerTool):
                         If None or empty, no additional options are passed.
         :return: True if the dofile was generated successfully.
         """
-        args_testbench = ["stil2tessent", "-stil", spf_path]
+        binary = "stil2tessent"
+        if not shutil.which(binary):
+            raise Exception(f"{binary} is not in PATH")
+        args_testbench = [binary, "-stil", spf_path]
         if options:
             args_testbench.extend(options)
 
