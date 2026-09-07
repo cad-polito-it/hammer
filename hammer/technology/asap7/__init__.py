@@ -12,8 +12,8 @@ import textwrap
 from types import new_class
 from typing import NamedTuple, List, Optional, Tuple, Dict, Set, Any
 
-from hammer.tech import HammerTechnology
-from hammer.vlsi import HammerTool, HammerPlaceAndRouteTool, HammerSynthesisTool, HammerDRCTool, MentorCalibreTool, TCLTool, HammerToolHookAction
+from hammer.tech import HammerTechnology, Library
+from hammer.vlsi import HammerTool, HammerPlaceAndRouteTool, HammerSynthesisTool, HammerATPGTool, HammerDRCTool, MentorCalibreTool, TCLTool, HammerToolHookAction, HammerTimingTool
 
 class ASAP7Tech(HammerTechnology):
     """
@@ -507,6 +507,45 @@ endprimitive"""
             HammerTool.make_persistent_hook(asap7_generate_db_files)
             ]}
         return hooks.get(tool_name, [])
+
+    def get_tech_timing_hooks(self, tool_name:str) ->List[HammerToolHookAction]:
+        hooks = {"primetime": [
+            HammerTool.make_persistent_hook(asap7_get_db_files)
+            ]}
+        return hooks.get(tool_name, [])
+    
+    def get_tech_atpg_hooks(self, tool_name: str) -> List[HammerToolHookAction]:
+        hooks = {"tessent": [
+            HammerTool.make_persistent_hook(asap7_generate_tessent_atpg_lib)
+            ]}
+        return hooks.get(tool_name, [])
+
+def asap7_get_db_files(ht: HammerTool) -> bool:
+    assert isinstance(ht, HammerTimingTool)
+    library_file = {}
+    for liberty in ht.timing_liberty:
+        if "SRAM" not in liberty:
+            lib_name = os.path.splitext(os.path.basename(liberty))[0]
+            db = os.path.join( os.path.dirname(liberty) ,lib_name + ".db")
+            if not(os.path.exists(db)):
+                ht.logger.info(f"Liberty files ({lib_name}) does not exists")
+                return False
+            ## Update the tech json with DB files
+            library_file[liberty] = db
+            
+    new_libraries = []
+    for lib in ht.technology.config.libraries:
+        # Check if this library has the liberty file set but lacks the library file
+        if lib.nldm_liberty_file is not None and "SRAM" not in lib.nldm_liberty_file:
+            lib_path = lib.nldm_liberty_file.replace("cache", ht.technology.cache_dir)
+            updated_lib = lib.copy(update={'nldm_library_file': library_file[lib_path]})
+            new_libraries.append(updated_lib)
+        else:
+            new_libraries.append(lib)
+
+    # Re-assign the updated list back to the technology config
+    ht.technology.config.libraries = new_libraries
+    return True
 
 def asap7_generate_db_files(ht: HammerTool) -> bool:
     assert isinstance(ht, HammerSynthesisTool)
