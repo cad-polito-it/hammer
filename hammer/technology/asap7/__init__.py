@@ -513,6 +513,8 @@ def asap7_generate_db_files(ht: HammerTool) -> bool:
     library_file = {}
     convert_tcl_file = ht.script_dir + "/fromLib2db.tcl"
     convert_tcl = ""
+
+    liberty_converted = False
     ## Get liberty files 
     for liberty in ht.timing_liberty:
         if "SRAM" not in liberty:
@@ -520,8 +522,8 @@ def asap7_generate_db_files(ht: HammerTool) -> bool:
             db = os.path.join( os.path.dirname(liberty) ,lib_name + ".db")
             # Skip if they already exists
             if os.path.exists(db):
-                ht.logger.info("Liberty files already converted")
-                return True 
+                ht.logger.info(f"Liberty files ({lib_name}) already converted")
+                liberty_converted = True 
             ## Update the tech json with DB files
             library_file[liberty] = db
             convert_tcl += f"read_lib {liberty}\n write_lib -f db -output {db} {lib_name}\n\n"
@@ -552,7 +554,8 @@ def asap7_generate_db_files(ht: HammerTool) -> bool:
         "-no_log",
         "-f", convert_tcl_file
     ]
-    ht.run_executable(args = args ,cwd=ht.run_dir)
+    if not(liberty_converted):
+        ht.run_executable(args = args ,cwd=ht.run_dir)
     return True
 
 def asap7_innovus_settings(ht: HammerTool) -> bool:
