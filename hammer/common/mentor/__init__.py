@@ -8,7 +8,7 @@ from hammer.vlsi import TCLTool, HammerTool
 
 class SiemensTool(TCLTool, HammerTool):
     """Mix-in trait with functions useful for Siemens EDA (formerly Mentor
-    Graphics) tools, e.g. Tessent."""
+    Graphics) tools."""
 
     @property
     def env_vars(self) -> Dict[str, str]:
@@ -54,13 +54,12 @@ class SiemensTool(TCLTool, HammerTool):
 
     def generate_dofile_from_spf(self, spf_path: str, options: Optional[List[str]] = []) -> bool:
         """
-        Generate a Verilog testbench from a STIL file using stil2verilog.
+        Generate a Tessent dofile (scan chain/clock setup, ...) from an SPF file using stil2tessent.
 
-        :param stil_path: Path to the input STIL file.
-        :param testbench_name: Name of the output Verilog testbench file.
-        :param options: Optional list of additional command-line options for stil2verilog.
+        :param spf_path: Path to the input SPF file.
+        :param options: Optional list of additional command-line options for stil2tessent.
                         If None or empty, no additional options are passed.
-        :return: True if the testbench was generated successfully.
+        :return: True if the dofile was generated successfully.
         """
         args_testbench = ["stil2tessent", "-stil", spf_path]
         if options:
