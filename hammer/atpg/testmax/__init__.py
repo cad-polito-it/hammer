@@ -293,9 +293,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             if set_atpg_args_str:
                 self.append(f'set_atpg {set_atpg_args_str}')
 
-            self.generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
-            self.generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_testbench.stil')
-            self.append(f'# run_atpg -> generate patterns to {self.generated_pattern_path}')
+            self.generated_patterns_path = os.path.join(self.result_dir, f'{self.top_module}_patterns.stil')
+            self.generated_patterns_zoix_path = os.path.join(self.result_dir, f'{self.top_module}_patterns.stil.zoix')
+            self.generated_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_testbench.v')
+            self.append(f'# run_atpg -> generate patterns to {self.generated_patterns_path}')
 
             # Optional extra args to "run_atpg" from the Hammer config.
             run_atpg_args = self.get_setting("atpg.testmax.run_atpg_args", nullvalue=[])  # type: List[str]
@@ -309,11 +310,11 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             else:
                 self.append('run_atpg')
 
-            # 5a) Write and save test patterns (already covered by generated_pattern_path)
-            self.append(f'write_patterns {self.generated_pattern_path} -internal -format stil -replace')
+            # 5a) Write and save test patterns (already covered by generated_patterns_path)
+            self.append(f'write_patterns {self.generated_patterns_path} -internal -format stil -replace')
             # Stil pattern suitable for VC_Z01X/Z01X
-            self.append(f'write_pattern {self.generated_pattern_path}.zoix -cellnames module  -format stil99 -replace -parallel -nocompaction -order_pins -nocompaction -internal_scancells')
-            self.patterns = self.generated_pattern_path
+            self.append(f'write_pattern {self.generated_patterns_zoix_path} -cellnames module  -format stil99 -replace -parallel -nocompaction -order_pins -nocompaction -internal_scancells')
+            self.patterns = self.generated_patterns_path
 
             self.did_generate_patterns = True
             self.patterns_source_kind = "generated"
@@ -329,7 +330,6 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         log = HammerVLSILogging.context("atpg.fault_sim")
 
-        generated_pattern_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
         user_patterns_file = self.patterns_file
 
         patterns_source = ""
@@ -344,7 +344,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             log.debug(f"Fault simulation on user pattern file: {patterns_source}")
         elif self.did_generate_patterns == True:
             # Mode 1: fault simulation of freshly generated patterns.
-            patterns_source = generated_pattern_path
+            patterns_source = self.generated_patterns_path
             self.patterns_source_kind = "generated"
             log.debug(f"Fault simulation on generated pattern set: {patterns_source}")
 
@@ -525,7 +525,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         # Generate testbench based on the patterns source
         if self.did_generate_patterns:
             # Case 1: We generated patterns in this run -> testbench for generated patterns
-            self.write_testbench(self.generated_pattern_path, self.generated_testbench_path, stil2verilog_options)
+            self.write_testbench(self.generated_patterns_path, self.generated_testbench_path, stil2verilog_options)
         elif self.did_fault_sim and self.patterns_file:
             # Case 2: Fault simulation only with user-provided patterns -> testbench for user patterns
             user_testbench_path = os.path.join(self.result_dir, f'{self.top_module}_user_testbench')
