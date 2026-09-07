@@ -167,7 +167,7 @@ class TESSENT(HammerATPGTool, SiemensTool):
         
         if self._additional_modules != None:
             for module_name in self._additional_modules:
-                self.append(f"add_nofaults -module \"{module_name}\"")
+                self.append(f"add_nofaults {module_name} -Module")
 
         return True
 
