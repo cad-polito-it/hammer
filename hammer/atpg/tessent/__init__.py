@@ -14,6 +14,16 @@ import os
 
 class TESSENT(HammerATPGTool, SiemensTool):
 
+    _additional_modules: Optional[List[str]] = None
+
+    @property
+    def additional_modules(self) -> Optional[List[str]]:
+        return self._additional_modules
+
+    @additional_modules.setter
+    def additional_modules(self, value: Optional[List[str]]) -> None:
+        self._additional_modules = value
+
     def tool_config_prefix(self) -> str:
         return "atpg.tessent"
 
@@ -154,6 +164,10 @@ class TESSENT(HammerATPGTool, SiemensTool):
         # add_nofaults is setup-mode only, so it must run here
         for sram_name in self.technology.get_extra_libraries_name():
             self.append(f'add_nofaults {sram_name} -Module')
+        
+        if self._additional_modules != None:
+            for module_name in self._additional_modules:
+                self.append(f"add_nofaults -module \"{module_name}\"")
 
         return True
 
