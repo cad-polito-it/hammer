@@ -56,6 +56,10 @@ class TESSENT(HammerATPGTool, SiemensTool):
         outputs["atpg.outputs.output_executed_generate_patterns"] = self.executed_generate_patterns
         outputs["atpg.outputs.output_patterns_source_kind"] = self.output_patterns_source_kind
         outputs["atpg.outputs.output_input_faults_file"] = self.output_input_faults_file
+        if self.fault_model == "sdf":
+            outputs["atpg.outputs.output_sdf_time_margin"] = self.output_time_margin
+        else:
+            outputs["atpg.outputs.output_sdf_time_margin"] = 0.0
         return outputs
 
     @property
@@ -433,6 +437,11 @@ class TESSENT(HammerATPGTool, SiemensTool):
         
         self.generate_dofile_from_spf(spf_path)
 
+    def _extract_time_margin(self) -> None:
+        """Extracts the floating-point value from the time margin"""
+        self.logger.warning("Extraction of time margin for small delay faults is not be implemented (defaulting to zero")
+        self.output_time_margin = 0.0
+
     def _define_clock_waveforms(self) -> None:
         """Emit 'set_atpg_timing -clock_waveform' for every known clock, plus a DEFAULT
         fallback for every other clock in the design, so timing-aware ATPG (e.g. -retarget)
@@ -486,6 +495,8 @@ class TESSENT(HammerATPGTool, SiemensTool):
         self._write_atpg_dofile()
         args = [tessent_bin, "-shell", "-dofile", tessent_dofile]
         self.run_executable(args, self.run_dir)
+        if self.fault_model == "sdf":
+            self._extract_time_margin()
         HammerVLSILogging.enable_colour = True
         HammerVLSILogging.enable_tag = True
         return True
