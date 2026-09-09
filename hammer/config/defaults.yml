@@ -60,7 +60,7 @@ vlsi.core:
     max_threads: 1 # Maximum threads to use in a FSIM tool invocation.
 
   atpg:
-    max_processes: 12 # Maximum threads to use in a ATPG tool invocation.
+    max_worker: 12 # Maximum processes/threads to use in a ATPG tool invocation.
 
 vlsi.technology:
 # TODO ucb-bar/hammer#317 move these to technology.core (discussion to be had)
