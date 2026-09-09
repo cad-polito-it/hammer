@@ -263,10 +263,15 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         set_faults_args_str = " ".join([a for a in set_faults_args if a])
 
         # Controlling the number of processes
-        processes = self.get_setting("vlsi.core.atpg.max_processes")
-        if processes > 1:
-            self.append(f"set_atpg -num_processes  {processes}")
-            self.append(f"set_simulation -num_processes  {processes}")
+        workers = self.get_setting("vlsi.core.atpg.max_worker")
+        if workers > 1:
+            if self._is_multithreading:
+                self.append(f"set_atpg -num_threads  {workers}")
+                self.append(f"set_simulation -num_threads  {workers}")
+            else: # Multiprocessing 
+                self.append(f"set_atpg -num_processes  {workers}")
+                self.append(f"set_simulation -num_processes  {workers}")
+        
         self.append(f'set_atpg -coverage {self.get_setting("atpg.target_coverage", nullvalue=100.00)}')
         self.append(f'set_faults -model {self.atpg_fault_model}')
 
@@ -522,6 +527,17 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             os.path.dirname(self.get_setting("atpg.testmax.testmax_bin")),
             os.environ["PATH"])
         return env
+
+    @property
+    def _is_multithreading(self) -> bool:
+        # Check if tmax2 is available (testmax in multithreaded mode)
+        # If false we resort to multi-process
+        if "tmax2" in os.path.basename(self.get_setting("atpg.testmax.testmax_bin")) :
+            self.logger.info("Using TestMax in multithreading mode")
+            return True 
+        else:
+            self.logger.info("Using TestMax in multiprocessing mode")
+            return False
 
     def generate_testbench(self) -> bool:
         # Optional extra args to "stil2verilog".
