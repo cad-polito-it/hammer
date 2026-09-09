@@ -56,7 +56,7 @@ vlsi.core:
     max_threads: int
   atpg:
     # Maximum threads to use in a ATPG tool invocation.
-    max_threads: int
+    max_processes: int
 
 vlsi.technology:
   # Placement site for macros. (Optional[str])
