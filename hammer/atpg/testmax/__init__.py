@@ -261,7 +261,10 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
         # Optional extra args to "set_faults".
         set_faults_args = self.get_setting("atpg.testmax.set_faults_args", nullvalue=[])  # type: List[str]
         set_faults_args_str = " ".join([a for a in set_faults_args if a])
-
+        # We do actually use them for controlling the number of processes
+        threads = self.get_setting("vlsi.core.atpg.max_threads", 1)
+        self.append(f"set_atpg -num_processes  {threads}")
+        self.append(f"set_simulation -num_processes  {threads}")
         self.append(f'set_atpg -coverage {self.get_setting("atpg.target_coverage", nullvalue=100.00)}')
         self.append(f'set_faults -model {self.atpg_fault_model}')
 
