@@ -694,6 +694,7 @@ class HammerDriver:
 
         atpg_tool.fault_model = self.database.get_setting('atpg.inputs.fault_model')
         atpg_tool.spf_file = self.database.get_setting('atpg.inputs.spf_file')
+        atpg_tool.sdf_file = self.database.get_setting('atpg.inputs.sdf_file')
 
 
         atpg_tool.create_patterns = False if self.database.get_setting('atpg.inputs.create_patterns') == "False" else True
@@ -1145,6 +1146,7 @@ class HammerDriver:
                 "atpg.inputs.seq_cells": output_dict.get("synthesis.outputs.seq_cells", None),
                 "atpg.inputs.post_synth_sdc": output_dict.get("synthesis.outputs.sdc", None),
                 "atpg.inputs.spf_file": output_dict["synthesis.outputs.spf_file"],
+                "atpg.inputs.sdf_file": output_dict["synthesis.outputs.sdf_file"],
                 "atpg.inputs.level": 'syn',
                 "vlsi.builtins.is_complete": False
             }  # type: Dict[str, Any]

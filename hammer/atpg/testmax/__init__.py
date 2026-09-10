@@ -311,8 +311,8 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             else:
                 self.append('run_atpg')
 
-            # 5a) Write and save test patterns (already covered by generated_patterns_path)
-            self.append(f'write_patterns {self.generated_patterns_path} -internal -format stil -replace')
+            # 5a) Write and save test patterns (already covered by generated_patternss_path)
+            self.append(f'write_patterns {self.generated_patternss_path} -internal -format stil -replace')
             # Stil pattern suitable for VC_Z01X/Z01X
             self.append(f'write_pattern {self.generated_patterns_zoix_path} -cellnames module  -format stil99 -replace -parallel -nocompaction -order_pins -nocompaction -internal_scancells')
             self.patterns = self.generated_patterns_path
@@ -337,7 +337,6 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
 
         log = HammerVLSILogging.context("atpg.fault_sim")
 
-        generated_patterns_path = os.path.join(self.result_dir, f'{self.top_module}_patterns')
         user_patterns_file = self.patterns_file
 
         patterns_source = ""
@@ -352,7 +351,7 @@ class TESTMAX(HammerATPGTool, SynopsysTool):
             log.debug(f"Fault simulation on user pattern file: {patterns_source}")
         elif self.did_generate_patterns == True:
             # Mode 1: fault simulation of freshly generated patterns.
-            patterns_source = generated_patterns_path
+            patterns_source = self.generated_patterns_path
             self.patterns_source_kind = "generated"
             log.debug(f"Fault simulation on generated pattern set: {patterns_source}")
 
