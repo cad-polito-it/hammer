@@ -833,6 +833,10 @@ atpg.inputs:
   # Fault list path for incremental test pattern generation 
   # type: Optional[str]
 
+  ud_faults_file: null
+  # UD faults saved during generation are reused automatically.
+  # type: Optional[str]
+
   sdf_file: null # SDF File
   # type: str
   # Standard Delay Format file for use in timing annotated sims
