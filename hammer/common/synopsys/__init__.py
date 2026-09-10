@@ -1,6 +1,7 @@
 import datetime
 import inspect
 import os
+import shutil
 import json
 import copy
 from typing import Optional, Dict, List
@@ -349,7 +350,10 @@ close $write_regs_ir
                         If None or empty, no additional options are passed.
         :return: True if the testbench was generated successfully.
         """
-        args_testbench = ["stil2verilog", stil_path, testbench_name, "-replace"]
+        binary = "stil2verilog"
+        if not shutil.which(binary):
+            raise Exception(f"{binary} is not in PATH")
+        args_testbench = [binary, stil_path, testbench_name, "-replace"]
         if options:
             args_testbench.extend(options)
 
