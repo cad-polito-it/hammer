@@ -344,6 +344,8 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             self.standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, "gen_" + self.fault_model + "_" + self.tb_dut.split(".")[-1] + ".sff")
             os.makedirs(os.path.dirname(self.standard_fault_format), exist_ok=True)
             with open(self.standard_fault_format, "w") as f:
+                if self.fault_model == "sdf":
+                    self.logger.error("Please provide a standard fault format without the FaultGenerate section or an ATPG fault list for Small delay faults")
                 f.write("# Weights\n")
                 f.write("Coverage\n")
                 f.write("{\n")
