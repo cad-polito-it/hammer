@@ -1405,6 +1405,16 @@
                                       "ICGx5_ASAP7_75t_L" , "ICGx5_ASAP7_75t_SL" , "ICGx5_ASAP7_75t_SRAM" , "ICGx4DC_ASAP7_75t_L" , "ICGx4DC_ASAP7_75t_SL" , 
                                       "ICGx4DC_ASAP7_75t_SRAM" , "ICGx1_ASAP7_75t_L" , "ICGx1_ASAP7_75t_SL" , "ICGx1_ASAP7_75t_SRAM" , "ICGx5p33DC_ASAP7_75t_L" , 
                                       "ICGx5p33DC_ASAP7_75t_SL" , "ICGx5p33DC_ASAP7_75t_SRAM" , "ICGx6p67DC_ASAP7_75t_L" , "ICGx6p67DC_ASAP7_75t_SL" , 
-                                      "ICGx6p67DC_ASAP7_75t_SRAM" ], "input_ports": ["ENA", "SE", "CLK"], "output_ports":  ["GCLK"]}
+                                      "ICGx6p67DC_ASAP7_75t_SRAM" ], "input_ports": ["ENA", "SE", "CLK"], "output_ports":  ["GCLK"]},
+    {"cell_type": "ctsinverter", "name": ["INVx5_ASAP7_75t_R", "INVx6_ASAP7_75t_R", "INVxp67_ASAP7_75t_R", "INVx1_ASAP7_75t_R", "INVx2_ASAP7_75t_R", 
+                                      "INVx8_ASAP7_75t_R", "INVx3_ASAP7_75t_R", "INVx13_ASAP7_75t_R", "INVx11_ASAP7_75t_R", "INVx4_ASAP7_75t_R", 
+                                      "INVxp33_ASAP7_75t_R", "INVx5_ASAP7_75t_L", "INVx5_ASAP7_75t_SL", "INVx5_ASAP7_75t_SRAM", "INVx6_ASAP7_75t_L", 
+                                      "INVx6_ASAP7_75t_SL", "INVx6_ASAP7_75t_SRAM", "INVxp67_ASAP7_75t_L", "INVxp67_ASAP7_75t_SL", "INVxp67_ASAP7_75t_SRAM", 
+                                      "INVx1_ASAP7_75t_L", "INVx1_ASAP7_75t_SL", "INVx1_ASAP7_75t_SRAM", "INVx2_ASAP7_75t_L", "INVx2_ASAP7_75t_SL", 
+                                      "INVx2_ASAP7_75t_SRAM", "INVx8_ASAP7_75t_L", "INVx8_ASAP7_75t_SL", "INVx8_ASAP7_75t_SRAM", "INVx3_ASAP7_75t_L", 
+                                      "INVx3_ASAP7_75t_SL", "INVx3_ASAP7_75t_SRAM", "INVx13_ASAP7_75t_L", "INVx13_ASAP7_75t_SL", "INVx13_ASAP7_75t_SRAM", 
+                                      "INVx11_ASAP7_75t_L", "INVx11_ASAP7_75t_SL", "INVx11_ASAP7_75t_SRAM", "INVx4_ASAP7_75t_L", "INVx4_ASAP7_75t_SL", 
+                                      "INVx4_ASAP7_75t_SRAM", "INVxp33_ASAP7_75t_L", "INVxp33_ASAP7_75t_SL", "INVxp33_ASAP7_75t_SRAM"], 
+                                      "input_ports": ["Y"], "output_ports": ["A"]}
   ]
 }

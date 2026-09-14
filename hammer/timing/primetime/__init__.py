@@ -89,10 +89,7 @@ class PrimeTime(HammerTimingTool, SynopsysTool):
         
         if not self.check_input_files([".v", ".v.gz"]):
             return False
-        # We are switching working directories and we still need to find paths.
-        abspath_input_files = list(map(lambda name: os.path.join(os.getcwd(), name), self.input_files))
-        self.append("read_verilog {{ {files} }}".format(
-            files=" ".join(abspath_input_files)))
+
         verilog = self.verilog 
         for v in verilog:
             if not os.path.exists(v):
