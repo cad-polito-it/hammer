@@ -156,6 +156,25 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
 
         return True
 
+    def _extract_time_unit(self, file_path: str) -> Optional[TimeValue]:
+        """
+        Reads a file line by line and extracts the timescale as a TimeValue object.
+
+        Returns:
+            TimeValue instance if found, otherwise None
+        """
+        # Regex matches content inside (TIMESCALE <value_and_unit>)
+        pattern = re.compile(r'\(TIMESCALE\s+([^)]+)\)', re.IGNORECASE)
+
+        with open(file_path, 'r', encoding='utf-8') as file:
+            for line in file:
+                match = pattern.search(line)
+                if match:
+                    raw_time_str = match.group(1).strip()
+                    return TimeValue(raw_time_str)
+
+        return None
+
     def _read_slack_info(self, input_file: str, default_period: float) -> dict:
         fault_placement = {}
         # Pattern to capture rise, fall, and the point name
@@ -184,11 +203,20 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
         self.logger.info("Adding small delays in imported fault list")
 
         # Extract the time unit
-        clock_value = self.clocks[0].get('period')
-        match = re.search(r"(\d*\.?\d+)\s*([a-zA-Z]+)", clock_value)
-        if match:
-            clock_value = match.group(1) 
-            clock_time_unit = match.group(2)  
+        clock_period_str = self.clocks[0].get('period')
+
+        if clock_period_str:
+            clock_time = TimeValue(clock_period_str) 
+            # We need to be sure about the time unit (extract from sdf)
+            self.sdf_time_unit = self._extract_time_unit(self.sdf_file)
+            # Compute the correct clock value based on the time units from the sdf
+            if self.sdf_time_unit and self.sdf_time_unit.value > 0:
+                # e.g., 1 ns / 1 ps = 1000.0
+                clock_value = float(clock_time.value / self.sdf_time_unit.value)
+            else:
+                self.logger.error("No unit detected from SDF file")
+                return False
+            self.logger.info(f"Time scale for Small delay fault is {self.sdf_time_unit.value_prefix}{self.sdf_time_unit.unit}")
         else:
             self.logger.error("No unit detected from clock specification")
             return False
@@ -211,7 +239,7 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                     
                     if port_raw in fault_placement:
                         delay = fault_placement[port_raw][value]
-                        timing_str = f"({delay}{clock_time_unit})"
+                        timing_str = f"({delay}{self.sdf_time_unit.value_prefix}{self.sdf_time_unit.unit})"
                         # Rebuild line: note the double {{ }} for literal braces
                         new_line = f" {status} {value} {timing_str} {{PORT \"{port_raw}\"}}\n"
                         updated_lines.append(new_line)
