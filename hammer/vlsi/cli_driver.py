@@ -759,7 +759,7 @@ class CLIDriver:
                 assert driver.atpg_tool is not None, "load_atpg_tool was unsuccessful"
                 success, output = driver.run_atpg(
                         driver.atpg_tool.get_tool_hooks() + \
-                        driver.tech.get_tech_sim_hooks(driver.atpg_tool.name) + \
+                        driver.tech.get_tech_atpg_hooks(driver.atpg_tool.name) + \
                         list(extra_hooks or []))
                 if not success:
                     driver.log.error("ATPG tool did not succeed")

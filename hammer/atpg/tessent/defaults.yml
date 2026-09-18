@@ -1,0 +1,42 @@
+# Default settings for ATPG using Siemens Tessent
+atpg.tessent:
+
+  set_read_verilog_options_args: ["-unbalanced_celldefine_severity warning"] # Args for the set_read_verilog_options command
+  # type: List[str]
+
+  add_black_boxes_args: ["-auto"] # Args for the add_black_boxes command
+  # type: List[str]
+
+  set_system_mode_args: [] # Extra args for the "set_system_mode analysis" command
+  # type: List[str]
+
+  add_faults_args: [] # Args for the add_faults command
+  # type: List[str]
+
+  create_patterns_args: [] # Args for the create_patterns command
+  # type: List[str]
+
+  write_patterns_args: [] # Args for the write_patterns command
+  # type: List[str]
+
+  simulate_patterns_args: [] # Args for the simulate_patterns command
+  # type: List[str]
+
+  write_faults_format: "basic" # Format for the write_faults command
+  # type: str
+
+  read_sdf_args: [] # Args for the read_sdf command
+  # type: List[str]
+
+  set_atpg_timing_args: [] # Args for the set_atpg_timing command
+  # type: List[str]
+
+  default_clock_period: "100 ns" # Clock period to use for the "DEFAULT" clock waveform definition for Timing-Aware ATPG
+  # type: str
+
+  # Location of the binary.
+  tessent_bin: "${mentor.mentor_home}/${atpg.tessent.version}/bin/tessent"
+  tessent_bin_meta: lazysubst
+
+  # Tessent version to use, e.g. "2022.3"
+  version: "2022.3"

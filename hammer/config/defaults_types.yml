@@ -536,6 +536,10 @@ atpg.inputs:
   # type: Optional[str]
   faults_file: Optional[str]
 
+  # UD faults saved during generation are reused automatically.
+  # type: Optional[str]
+  ud_faults_file: Optional[str]
+
   # Stil procedure file for test pattern generation 
   # type: str
   spf_file: str

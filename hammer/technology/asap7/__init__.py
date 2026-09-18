@@ -12,8 +12,8 @@ import textwrap
 from types import new_class
 from typing import NamedTuple, List, Optional, Tuple, Dict, Set, Any
 
-from hammer.tech import HammerTechnology, Library
-from hammer.vlsi import HammerTool, HammerPlaceAndRouteTool, HammerSynthesisTool, HammerATPGTool, HammerDRCTool, MentorCalibreTool, TCLTool, HammerToolHookAction, HammerTimingTool
+from hammer.tech import HammerTechnology, Library, Library
+from hammer.vlsi import HammerTool, HammerPlaceAndRouteTool, HammerSynthesisTool, HammerATPGTool, HammerATPGTool, HammerDRCTool, MentorCalibreTool, TCLTool, HammerToolHookAction, HammerTimingTool
 
 class ASAP7Tech(HammerTechnology):
     """
@@ -595,6 +595,45 @@ def asap7_generate_db_files(ht: HammerTool) -> bool:
     ]
     if not(liberty_converted):
         ht.run_executable(args = args ,cwd=ht.run_dir)
+    return True
+
+def asap7_generate_tessent_atpg_lib(ht: HammerTool) -> bool:
+    assert isinstance(ht, HammerATPGTool)
+    tessent_cache_dir = os.path.join(ht.technology.cache_dir, "tessent")
+    os.makedirs(tessent_cache_dir, exist_ok=True)
+    verilog_dir = os.path.join(ht.technology.cache_dir, "Verilog")
+    libcomp_output = os.path.join(tessent_cache_dir, "asap7.atpg")
+    if os.path.exists(libcomp_output):
+        ht.logger.info("Tessent libcomp library already generated")
+    else:
+        libcomp_dofile = os.path.join(tessent_cache_dir, "libcomp.do")
+        libcomp_dofile_contents = "\n".join([
+            "add model -all",
+            "set system mode translation",
+            "run",
+            f"write library {libcomp_output}",
+            "exit",
+        ])
+
+        with open(libcomp_dofile, "w") as f:
+            f.write(libcomp_dofile_contents)
+
+        # This assumes libcomp bin lives alongside tessent_bin, same as Tessent's own binaries.
+        libcomp_bin = os.path.join(os.path.dirname(ht.get_setting("atpg.tessent.tessent_bin")), "libcomp")
+        if not shutil.which(libcomp_bin):
+            raise Exception(f"{libcomp_bin} does not exist or is not executable")
+
+        args = [
+            libcomp_bin,
+            verilog_dir,
+            "-dofile", libcomp_dofile,
+        ]
+        ht.run_executable(args=args, cwd=tessent_cache_dir)
+
+    ht.technology.config.libraries = list(ht.technology.config.libraries) + [
+        Library(atpg_library_file=libcomp_output)
+    ]
+
     return True
 
 def asap7_innovus_settings(ht: HammerTool) -> bool:
