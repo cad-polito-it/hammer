@@ -292,7 +292,7 @@ class TESSENT(HammerATPGTool, SiemensTool):
         return True
 
     def run_fault_sim(self) -> bool:
-        # TODO: Investigate the patterns rejected during fault simulation.
+        # TODO (myupanic): Investigate the patterns rejected during fault simulation.
         """Run fault simulation either on generated patterns (default) or on
         a user-specified pattern file (PATTERNS_FILE=...)."""
 
@@ -439,7 +439,7 @@ class TESSENT(HammerATPGTool, SiemensTool):
         self.generate_dofile_from_spf(spf_path)
 
     def _extract_time_margin(self) -> None:
-        # TODO: Extract the SDF time margin as an output to be used in further fault simulations for functional tests.
+        # TODO (myupanic): Extract the SDF time margin (with the associated timem unit) as an output to be used in further fault simulations for functional tests. An idea could be to parse the output fault list with associated slack and select the maximum value.
         """Extracts the floating-point value from the time margin"""
         self.logger.warning("Extraction of time margin for small delay faults is not be implemented (defaulting to zero")
         self.output_time_margin = 0.0
