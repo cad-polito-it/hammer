@@ -128,6 +128,7 @@ class Library(BaseModel):
     power_grid_library: Optional[str] = None
     extra_prefixes: Optional[List[PathPrefix]] = None
     def_file: Optional[str] = None
+    atpg_library_file: Optional[str] = None
 
 
 PathsFunctionType = Callable[[Library], List[str]]
@@ -1112,6 +1113,13 @@ class HammerTechnology:
         """
         return list()
 
+    def get_tech_atpg_hooks(self, tool_name: str) -> List['HammerToolHookAction']:
+        """
+        Return a list of ATPG hooks for this technology and tool.
+        To be overridden by subclasses.
+        """
+        return list()
+
     def get_tech_power_hooks(self, tool_name: str) -> List['HammerToolHookAction']:
         """
         Return a list of power hooks for this technology and tool.
@@ -1425,6 +1433,27 @@ class LibraryFilterHolder:
         return LibraryFilter(
             tag="verilog_sim",
             description="Gate-level verilog sources",
+            is_file=True,
+            filter_func=filter_func,
+            paths_func=paths_func
+        )
+
+    @property
+    def atpg_library_filter(self) -> LibraryFilter:
+        """
+        Select compiled ATPG cell libraries (Tessent's libcomp .atpg output).
+        """
+
+        def filter_func(lib: Library) -> bool:
+            return lib.atpg_library_file is not None
+
+        def paths_func(lib: Library) -> List[str]:
+            assert lib.atpg_library_file is not None
+            return [lib.atpg_library_file]
+
+        return LibraryFilter(
+            tag="atpg_library",
+            description="Compiled ATPG cell library",
             is_file=True,
             filter_func=filter_func,
             paths_func=paths_func
