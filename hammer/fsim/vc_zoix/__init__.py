@@ -430,9 +430,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                     for line in fin:
                         if "FaultGenerate" in line:
                             self.fsim_generate_faults = True 
-                if self.fault_model == "sdf":
-                    if not(self._fuse_slack_with_sff(self.slack_file, internal_standard_fault_format)):
-                        return False
             else:
                 internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, filename + "_" + self.fault_model + "_" + self.tb_dut.split(".")[-1] + extension)
                 shutil.copy(self.standard_fault_format, internal_standard_fault_format)
