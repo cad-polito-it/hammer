@@ -114,11 +114,14 @@ class VCS(HammerSimTool, SynopsysTool):
                 if self.get_setting("synthesis.dft_insertion") and self.level.is_gatelevel():
                     f.write("force "+ tb_prefix + ".test_se 0\n")
                     f.write("force "+ tb_prefix + ".test_mode 0\n")
-                for reg in sorted(reg_json, key=lambda r: len(r["path"])): # TODO: This is a workaround for a bug in P-2019.06
-                    path = reg["path"]
-                    path = '.'.join(path.split('/'))
-                    pin = reg["pin"]
-                    f.write("force -deposit {" + tb_prefix + "." + path + "." + pin + "} " + str(force_val) + "\n")
+                if "+vcs+initreg+random" in self.get_setting("sim.inputs.options", []):
+                    self.logger.info("Using VCS capabilities to initialize registers with +vcs+init+random")
+                else:
+                    for reg in sorted(reg_json, key=lambda r: len(r["path"])): # TODO: This is a workaround for a bug in P-2019.06
+                        path = reg["path"]
+                        path = '.'.join(path.split('/'))
+                        pin = reg["pin"]
+                        f.write("force -deposit {" + tb_prefix + "." + path + "." + pin + "} " + str(force_val) + "\n")
 
         return True
 

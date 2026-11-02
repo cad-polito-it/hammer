@@ -460,9 +460,6 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                     for line in fin:
                         if "FaultGenerate" in line:
                             self.fsim_generate_faults = True 
-                if self.fault_model == "sdf":
-                    if not(self._fuse_slack_with_sff(self.slack_file, internal_standard_fault_format)):
-                        return False
             else:
                 internal_standard_fault_format = os.path.join(self.run_dir, self.fault_model, benchmark_name, filename + "_" + self.fault_model + "_" + self.tb_dut.split(".")[-1] + extension)
                 shutil.copy(self.standard_fault_format, internal_standard_fault_format)
@@ -562,11 +559,14 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                 if self.get_setting("synthesis.dft_insertion") and self.level.is_gatelevel():
                     f.write("force "+ tb_prefix + ".test_se 0\n")
                     f.write("force "+ tb_prefix + ".test_mode 0\n")
-                for reg in sorted(reg_json, key=lambda r: len(r["path"])): # TODO: This is a workaround for a bug in P-2019.06
-                    path = reg["path"]
-                    path = '.'.join(path.split('/'))
-                    pin = reg["pin"]
-                    f.write("force -deposit {" + tb_prefix + "." + path + "." + pin + "} " + str(force_val) + "\n")
+                if "+vcs+initreg+random" in self.get_setting("sim.inputs.options", []):
+                    self.logger.info("Using VCS capabilities to initialize registers with +vcs+init+random")
+                else:        
+                    for reg in sorted(reg_json, key=lambda r: len(r["path"])): # TODO: This is a workaround for a bug in P-2019.06
+                        path = reg["path"]
+                        path = '.'.join(path.split('/'))
+                        pin = reg["pin"]
+                        f.write("force -deposit {" + tb_prefix + "." + path + "." + pin + "} " + str(force_val) + "\n")
 
         return True
 
@@ -814,12 +814,23 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             if self.standard_fault_format.endswith("sff"):
                 shutil.copyfile(self.standard_fault_format, sff_report_path)
             elif self.standard_fault_format.endswith("fau"):
+                # TODO (franout) this is a vendor oriented handmade parser, in the future this could be inserted into the common package
                 # We need to convert to an SFF from Tetramax fault list
                 # TODO (franout): temporary fix for appending full hierarchical path to faults location from TestMax (+dut+add+<string>  NYI in VC Z01X)
                 dut_path = self.campaign_tb_dut
 
+                # If the time marging is a percentage, calculate the threshold
+                if self.fault_model == "sdf":
+                    str_time_margin = str(self.time_margin)
+
                 with open(self.standard_fault_format,"r") as fault_list:
                     lines = fault_list.readlines()
+                    # Find max and min slack value for calculating the percentage of time margin
+                    if self.fault_model == "sdf" and "%" in str_time_margin:
+                        lines.sort(key=lambda line: float(line.split()[3]))
+                        threshold = int(float(len(lines) - 1 )*float(self.time_margin.replace("%",""))/100)
+                        index = 0
+                
                 with open(self.standard_fault_format,"w") as fault_list:
                     for line in lines:
                         if not line.strip():
@@ -832,9 +843,16 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                             line = line.replace("TP","NP") # TODO (franout): very optimistic, let's see if fsim can detect it better
                             # Select based on time margin 
                             columns = line.split()
-                            # Check against the calculated time margin from the atpg in order to be considered a small delay fault
-                            if float(columns[3]) >= self.time_margin :
-                                continue
+                            if "%" in str_time_margin: # Percentage based
+                                index = index + 1
+                                self.time_margin = float(columns[3])
+                                if index > threshold:
+                                    self.logger.info(f"Selected time margin for Small Delay faults is {self.time_margin}")
+                                    break
+                            else:                     
+                                # Check against the calculated time margin from the atpg in order to be considered a small delay fault
+                                if float(columns[3]) >= self.time_margin :
+                                    continue
                         else:
                             columns = line.split()
 
