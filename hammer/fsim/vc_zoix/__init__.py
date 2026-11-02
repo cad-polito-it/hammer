@@ -784,12 +784,23 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
             if self.standard_fault_format.endswith("sff"):
                 shutil.copyfile(self.standard_fault_format, sff_report_path)
             elif self.standard_fault_format.endswith("fau"):
+                # TODO (franout) this is a vendor oriented handmade parser, in the future this could be inserted into the common package
                 # We need to convert to an SFF from Tetramax fault list
                 # TODO (franout): temporary fix for appending full hierarchical path to faults location from TestMax (+dut+add+<string>  NYI in VC Z01X)
                 dut_path = self.campaign_tb_dut
 
+                # If the time marging is a percentage, calculate the threshold
+                if self.fault_model == "sdf":
+                    str_time_margin = str(self.time_margin)
+
                 with open(self.standard_fault_format,"r") as fault_list:
                     lines = fault_list.readlines()
+                    # Find max and min slack value for calculating the percentage of time margin
+                    if self.fault_model == "sdf" and "%" in str_time_margin:
+                        lines.sort(key=lambda line: float(line.split()[3]))
+                        threshold = int(float(len(lines) - 1 )*float(self.time_margin.replace("%",""))/100)
+                        index = 0
+                
                 with open(self.standard_fault_format,"w") as fault_list:
                     for line in lines:
                         if not line.strip():
@@ -802,9 +813,16 @@ class VC_ZOIX(HammerFaultSimTool, SynopsysTool):
                             line = line.replace("TP","NP") # TODO (franout): very optimistic, let's see if fsim can detect it better
                             # Select based on time margin 
                             columns = line.split()
-                            # Check against the calculated time margin from the atpg in order to be considered a small delay fault
-                            if float(columns[3]) >= self.time_margin :
-                                continue
+                            if "%" in str_time_margin: # Percentage based
+                                index = index + 1
+                                self.time_margin = float(columns[3])
+                                if index > threshold:
+                                    self.logger.info(f"Selected time margin for Small Delay faults is {self.time_margin}")
+                                    break
+                            else:                     
+                                # Check against the calculated time margin from the atpg in order to be considered a small delay fault
+                                if float(columns[3]) >= self.time_margin :
+                                    continue
                         else:
                             columns = line.split()
 
