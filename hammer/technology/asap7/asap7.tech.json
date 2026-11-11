@@ -1415,6 +1415,6 @@
                                       "INVx3_ASAP7_75t_SL", "INVx13_ASAP7_75t_L", "INVx13_ASAP7_75t_SL",
                                       "INVx11_ASAP7_75t_L", "INVx11_ASAP7_75t_SL", "INVx4_ASAP7_75t_L", "INVx4_ASAP7_75t_SL", 
                                       "INVxp33_ASAP7_75t_L", "INVxp33_ASAP7_75t_SL"], 
-                                      "input_ports": ["Y"], "output_ports": ["A"]}
+                                      "input_ports": ["A"], "output_ports": ["Y"]}
   ]
 }
